@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>AlgoEdge • </title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root{
+      --bg:#05060a;
+      --panel:rgba(12,16,28,.72);
+      --cyan:#22d3ee;
+      --muted:#94a3b8;
+    }
+    body{
+      background: var(--bg);
+      color:#e5e7eb;
+      background-image:
+        radial-gradient(circle at 15% 40%, rgba(34,211,238,.16) 0%, transparent 35%),
+        radial-gradient(circle at 85% 20%, rgba(56,189,248,.12) 0%, transparent 40%);
+      background-attachment:fixed;
+      font-family: ui-sans-serif, system-ui;
+    }
+    .glass{
+      background: var(--panel);
+      backdrop-filter: blur(14px);
+      border:1px solid rgba(34,211,238,.12);
+    }
+    .badge{
+      padding:.55rem 1rem;
+      border-radius:999px;
+      border:1px solid rgba(34,211,238,.12);
+      background:rgba(0,0,0,.35);
+      font-weight:600;
+      font-size:.85rem;
+    }
+    .btn{
+      padding:.65rem 1.05rem;
+      border-radius:.9rem;
+      font-weight:700;
+      transition:.15s;
+    }
+    .btn:hover{ transform: translateY(-1px); }
+    .btn-cyan{
+      background: linear-gradient(180deg, rgba(8,145,178,.96), rgba(6,182,212,.92));
+      box-shadow:0 16px 40px rgba(34,211,238,.12);
+    }
+    .btn-slate{
+      background: rgba(51,65,85,.65);
+      border:1px solid rgba(148,163,184,.18);
+    }
+    .btn-red{
+      background: rgba(239,68,68,.18);
+      border:1px solid rgba(239,68,68,.35);
+    }
+    table th{ color: rgba(34,211,238,.85); font-weight:800; }
+    table td{ color:#e5e7eb; }
+    tr:hover{ background: rgba(34,211,238,.06); }
+    .modal-card{
+      background: radial-gradient(1200px 600px at 30% 0%, rgba(0,240,255,.10), transparent 60%),
+                  linear-gradient(180deg, rgba(10,16,30,.96), rgba(8,12,20,.96));
+    }
+    .inp{
+      background: rgba(2,6,23,.55);
+      border: 1px solid rgba(148,163,184,.25);
+      border-radius: 14px;
+      padding: 12px 14px;
+      color:#e2e8f0;
+      outline:none;
+    }
+    .inp:focus{
+      border-color: rgba(34,211,238,.70);
+      box-shadow: 0 0 0 3px rgba(34,211,238,.15);
+    }
+  </style>
+</head>
+<body>
+
+<header class="sticky top-0 z-50 glass border-b border-cyan-900/30">
+  <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-5">
+      <h1 class="text-3xl font-black tracking-tighter">
+        <span class="text-white">Ash</span><span class="text-cyan-400">ALGO</span>
+      </h1>
+      <div class="px-3 py-1 rounded-full bg-cyan-950/40 text-cyan-300 text-xs font-medium">
+        user • {{USER_ID}}
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <div id="zbadge" class="badge">Zerodha • …</div>
+      <div id="wsbadge" class="badge">WS • …</div>
+
+      <button class="btn btn-cyan" onclick="openCred()">Connect</button>
+      <button class="btn btn-slate" onclick="openCfg()">Alert Config</button>
+      <button class="btn btn-red" onclick="killSwitch()">KILL</button>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-6 py-10 space-y-12">
+
+  <section>
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-2xl font-extrabold text-cyan-300">⚡ Live Chartink Alerts</h2>
+      <div class="text-sm text-slate-400">instant WS feed</div>
+    </div>
+
+    <div class="glass rounded-2xl overflow-hidden shadow-2xl shadow-black/70">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-black/60">
+            <tr>
+              <th class="p-4 text-left">Alert</th>
+              <th class="p-4 text-left">Symbol</th>
+              <th class="p-4 text-center">LTP</th>
+              <th class="p-4 text-center">%Chg</th>
+              <th class="p-4 text-center">TBQ</th>
+              <th class="p-4 text-center">TSQ</th>
+              <th class="p-4 text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody id="alertsBody" class="divide-y divide-cyan-900/30">
+            <tr><td colspan="7" class="p-10 text-center text-cyan-900/70 italic">Waiting for webhook…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-2xl font-extrabold text-cyan-300">📌 Open Positions (Algo)</h2>
+      <button class="btn btn-slate" onclick="refreshPositions()">Refresh</button>
+    </div>
+
+    <div class="glass rounded-2xl overflow-hidden shadow-2xl shadow-black/70">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-black/60">
+            <tr>
+              <th class="p-4 text-left">Symbol</th>
+              <th class="p-4 text-left">Alert</th>
+              <th class="p-4 text-center">Side</th>
+              <th class="p-4 text-center">Product</th>
+              <th class="p-4 text-center">Qty</th>
+              <th class="p-4 text-center">Entry</th>
+              <th class="p-4 text-center">LTP</th>
+              <th class="p-4 text-center">PnL</th>
+              <th class="p-4 text-center">Status</th>
+              <th class="p-4 text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody id="posBody" class="divide-y divide-cyan-900/30">
+            <tr><td colspan="10" class="p-10 text-center text-cyan-900/70 italic">No positions</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+
+<!-- ================= CREDENTIALS MODAL ================= -->
+<div id="credModal" class="fixed inset-0 hidden bg-black/75 backdrop-blur-md flex items-center justify-center z-50">
+  <div class="modal-card rounded-3xl p-10 w-full max-w-md border border-slate-700/50 shadow-2xl shadow-black/60">
+    <div class="flex items-center justify-between mb-8">
+      <h2 class="text-2xl font-semibold text-cyan-400 flex items-center gap-3">
+        <span class="inline-flex items-center justify-center w-10 h-10 rounded-xl"
+              style="background: rgba(34,211,238,.10); border: 1px solid rgba(34,211,238,.20);">🛡️</span>
+        Zerodha API Credentials
+      </h2>
+      <button onclick="closeCred()" class="text-slate-300 hover:text-white text-2xl">✕</button>
+    </div>
+
+    <p class="text-sm text-slate-400 mb-8">Securely connect your Zerodha account.</p>
+
+    <div class="mb-6">
+      <label class="block text-sm font-medium text-slate-300 mb-2">API Key</label>
+      <div class="relative">
+        <input id="api_key" type="password" placeholder="xxxxxxxxxxxxxxxxxxxxxxxx" class="w-full inp pr-14"/>
+        <button type="button" onclick="toggleVisibility('api_key')" class="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-xl text-slate-300 hover:text-cyan-300"
+                style="background: rgba(34,211,238,.06); border: 1px solid rgba(34,211,238,.10);">⊙</button>
+      </div>
+    </div>
+
+    <div class="mb-8">
+      <label class="block text-sm font-medium text-slate-300 mb-2">API Secret</label>
+      <div class="relative">
+        <input id="api_secret" type="password" placeholder="xxxxxxxxxxxxxxxxxxxxxxxx" class="w-full inp pr-14"/>
+        <button type="button" onclick="toggleVisibility('api_secret')" class="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-xl text-slate-300 hover:text-cyan-300"
+                style="background: rgba(34,211,238,.06); border: 1px solid rgba(34,211,238,.10);">⊙</button>
+      </div>
+    </div>
+
+    <div class="flex gap-4">
+      <button class="btn btn-cyan flex-3" onclick="saveCred()">⎙ Save Credentials</button>
+      <button class="btn btn-slate flex-1" onclick="connectZerodha()">🔗 Login to Kite</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ================= ALERT CONFIG MODAL ================= -->
+<div id="cfgModal"
+     class="fixed inset-0 hidden bg-black/70 backdrop-blur flex items-start justify-center z-50 overflow-y-auto py-10">
+  <div class="modal-card rounded-3xl p-10 w-full max-w-2xl border border-slate-700/50 shadow-2xl shadow-black/60">
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-2xl font-semibold text-cyan-300">⚙️ Alert Configuration</h2>
+      <button onclick="closeCfg()" class="text-slate-300 hover:text-white text-2xl">✕</button>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="text-sm text-slate-300">Alert Name (exact Chartink)</label>
+        <input id="cfg_alert" class="w-full inp mt-1" placeholder="e.g. BREAKOUT_LONG"/>
+      </div>
+      <div>
+        <label class="text-sm text-slate-300">Enabled</label>
+        <select id="cfg_enabled" class="w-full inp mt-1">
+          <option value="true">true</option>
+          <option value="false">false</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="text-sm text-slate-300">Direction</label>
+        <select id="cfg_dir" class="w-full inp mt-1">
+          <option>LONG</option>
+          <option>SHORT</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="text-sm text-slate-300">Product</label>
+        <select id="cfg_prod" class="w-full inp mt-1">
+          <option>MIS</option>
+          <option>CNC</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="text-sm text-slate-300">Qty Mode</label>
+        <select id="cfg_qtymode" class="w-full inp mt-1">
+          <option>CAPITAL</option>
+          <option>QTY</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="text-sm text-slate-300">Capital / Qty</label>
+        <div class="flex gap-3 mt-1">
+          <input id="cfg_cap" class="w-full inp" type="number" value="20000"/>
+          <input id="cfg_qty" class="w-full inp" type="number" value="1"/>
+        </div>
+      </div>
+
+      <div>
+        <label class="text-sm text-slate-300">Target % (MIS)</label>
+        <input id="cfg_tgt" class="w-full inp mt-1" type="number" step="0.01" value="1.0"/>
+      </div>
+      <div>
+        <label class="text-sm text-slate-300">Stop Loss % (MIS)</label>
+        <input id="cfg_sl" class="w-full inp mt-1" type="number" step="0.01" value="0.7"/>
+      </div>
+      <div>
+        <label class="text-sm text-slate-300">Trailing SL % (MIS)</label>
+        <input id="cfg_tsl" class="w-full inp mt-1" type="number" step="0.01" value="0.5"/>
+      </div>
+
+      <div>
+        <label class="text-sm text-slate-300">Trade Limit / Day</label>
+        <input id="cfg_limit" class="w-full inp mt-1" type="number" value="3"/>
+      </div>
+
+      <div class="col-span-2">
+        <label class="text-sm text-slate-300">Sector Filter</label>
+        <div class="flex items-center gap-4 mt-2">
+          <select id="cfg_sector_on" class="inp">
+            <option value="false">OFF</option>
+            <option value="true">ON</option>
+          </select>
+          <div class="text-slate-400 text-sm">Top N sectors:</div>
+          <input id="cfg_topn" class="inp w-28" type="number" value="2"/>
+          <div class="text-slate-400 text-sm">(LONG → top gainers, SHORT → top losers)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex gap-4 mt-8">
+  <button class="btn btn-cyan flex-1" onclick="saveCfg()">Save Config</button>
+  <button class="btn btn-slate flex-1" onclick="loadCfgList()">Reload</button>
+  <button class="btn btn-slate flex-1" onclick="closeCfg()">⬅ Back</button>
+</div>
+
+
+    <div class="mt-6">
+      <div class="text-sm text-slate-400 mb-2">Existing configs:</div>
+      <div id="cfgList" class="text-sm text-slate-200 space-y-1 max-h-40 overflow-auto"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="msg" class="fixed bottom-6 left-1/2 -translate-x-1/2 hidden px-6 py-3 rounded-xl text-sm font-bold shadow-2xl z-50"></div>
+
+<script>
+  const USER_ID = "{{USER_ID}}";
+
+  // ---------- helpers ----------
+  function toast(txt, err=false){
+    const el=document.getElementById("msg");
+    el.textContent=txt;
+    el.className="fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 rounded-xl text-sm font-bold shadow-2xl z-50 " + (err ? "bg-red-900/80 text-red-100 border border-red-700/50" : "bg-emerald-900/80 text-emerald-100 border border-emerald-700/50");
+    el.classList.remove("hidden");
+    setTimeout(()=>el.classList.add("hidden"), 2500);
+  }
+
+  function toggleVisibility(id){
+    const el=document.getElementById(id);
+    el.type = (el.type==="password") ? "text" : "password";
+  }
+
+  // ---------- Cred Modal ----------
+  function openCred(){ document.getElementById("credModal").classList.remove("hidden"); }
+  function closeCred(){ document.getElementById("credModal").classList.add("hidden"); }
+
+  async function saveCred(){
+    const api_key = document.getElementById("api_key").value;
+    const api_secret = document.getElementById("api_secret").value;
+    const r = await fetch("/api/save-credentials",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({user_id:USER_ID, api_key, api_secret})
+    });
+    const d = await r.json();
+    if(d.error){ toast("❌ "+d.error,true); return; }
+    toast("✅ Credentials saved");
+    closeCred();
+  }
+
+  function connectZerodha(){
+    window.location = `/connect/zerodha?user_id=${USER_ID}`;
+  }
+
+  // ---------- Zerodha status ----------
+  async function refreshZ(){
+    try{
+      const z = await (await fetch(`/api/zerodha-status?user_id=${USER_ID}`)).json();
+      const b = document.getElementById("zbadge");
+      if(z.connected){
+        b.textContent="🟢 Zerodha CONNECTED";
+        b.style.borderColor="rgba(16,185,129,.35)";
+      }else{
+        b.textContent="🔴 Zerodha DISCONNECTED";
+        b.style.borderColor="rgba(239,68,68,.35)";
+      }
+    }catch{
+      document.getElementById("zbadge").textContent="🔴 Zerodha DISCONNECTED";
+    }
+  }
+
+  // ---------- Config Modal ----------
+  function openCfg(){ document.getElementById("cfgModal").classList.remove("hidden"); loadCfgList(); }
+  function closeCfg(){ document.getElementById("cfgModal").classList.add("hidden"); }
+
+  async function saveCfg(){
+    const payload = {
+      user_id: USER_ID,
+      alert_name: document.getElementById("cfg_alert").value.trim(),
+      enabled: document.getElementById("cfg_enabled").value==="true",
+      direction: document.getElementById("cfg_dir").value,
+      product: document.getElementById("cfg_prod").value,
+      qty_mode: document.getElementById("cfg_qtymode").value,
+      capital: parseFloat(document.getElementById("cfg_cap").value||"0"),
+      qty: parseInt(document.getElementById("cfg_qty").value||"1"),
+      target_pct: parseFloat(document.getElementById("cfg_tgt").value||"1"),
+      stop_loss_pct: parseFloat(document.getElementById("cfg_sl").value||"1"),
+      trailing_sl_pct: parseFloat(document.getElementById("cfg_tsl").value||"1"),
+      trade_limit_per_day: parseInt(document.getElementById("cfg_limit").value||"1"),
+      sector_filter_on: document.getElementById("cfg_sector_on").value==="true",
+      top_n_sector: parseInt(document.getElementById("cfg_topn").value||"2"),
+    };
+    if(!payload.alert_name){ toast("❌ alert name required", true); return; }
+    const r = await fetch("/api/alert-config",{method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
+    const d = await r.json();
+    if(d.error){ toast("❌ "+d.error,true); return; }
+    toast("✅ Config saved");
+    loadCfgList();
+  }
+
+  async function loadCfgList(){
+    const d = await (await fetch(`/api/alert-config?user_id=${USER_ID}`)).json();
+    const box=document.getElementById("cfgList");
+    box.innerHTML="";
+    const cfgs=d.configs||{};
+    const keys=Object.keys(cfgs);
+    if(keys.length===0){ box.innerHTML='<div class="text-slate-500">No configs</div>'; return; }
+    keys.sort().forEach(k=>{
+      const c=cfgs[k];
+      box.innerHTML += `<div class="flex items-center justify-between bg-black/30 border border-cyan-900/20 rounded-xl px-3 py-2">
+        <div>
+          <div class="font-bold text-cyan-200">${k}</div>
+          <div class="text-xs text-slate-400">${c.direction} • ${c.product} • limit ${c.trade_limit_per_day} • sector ${c.sector_filter_on?"ON":"OFF"}</div>
+        </div>
+        <button class="btn btn-slate text-xs" onclick='fillCfg(${JSON.stringify(k)})'>Edit</button>
+      </div>`;
+    });
+  }
+
+  async function fillCfg(name){
+    const d = await (await fetch(`/api/alert-config?user_id=${USER_ID}`)).json();
+    const c = (d.configs||{})[name];
+    if(!c) return;
+    document.getElementById("cfg_alert").value = name;
+    document.getElementById("cfg_enabled").value = String(!!c.enabled);
+    document.getElementById("cfg_dir").value = c.direction||"LONG";
+    document.getElementById("cfg_prod").value = c.product||"MIS";
+    document.getElementById("cfg_qtymode").value = c.qty_mode||"CAPITAL";
+    document.getElementById("cfg_cap").value = c.capital||20000;
+    document.getElementById("cfg_qty").value = c.qty||1;
+    document.getElementById("cfg_tgt").value = c.target_pct||1;
+    document.getElementById("cfg_sl").value = c.stop_loss_pct||1;
+    document.getElementById("cfg_tsl").value = c.trailing_sl_pct||1;
+    document.getElementById("cfg_limit").value = c.trade_limit_per_day||3;
+    document.getElementById("cfg_sector_on").value = String(!!c.sector_filter_on);
+    document.getElementById("cfg_topn").value = c.top_n_sector||2;
+  }
+
+  // ---------- Positions ----------
+  async function refreshPositions(){
+    const d = await (await fetch(`/api/positions?user_id=${USER_ID}`)).json();
+    renderPositions(d.positions||[]);
+  }
+
+  function renderPositions(rows){
+    const tbody=document.getElementById("posBody");
+    if(!rows || rows.length===0){
+      tbody.innerHTML = `<tr><td colspan="10" class="p-10 text-center text-cyan-900/70 italic">No positions</td></tr>`;
+      return;
+    }
+    tbody.innerHTML="";
+    rows.forEach(p=>{
+      tbody.innerHTML += `<tr>
+        <td class="p-3 font-bold">${p.symbol}</td>
+        <td class="p-3 text-slate-300">${p.alert_name||"-"}</td>
+        <td class="p-3 text-center">${p.side}</td>
+        <td class="p-3 text-center">${p.product}</td>
+        <td class="p-3 text-center">${p.qty}</td>
+        <td class="p-3 text-center">${Number(p.entry_price||0).toFixed(2)}</td>
+        <td class="p-3 text-center" id="pltp-${p.symbol}">${Number(p.ltp||0).toFixed(2)}</td>
+        <td class="p-3 text-center" id="ppnl-${p.symbol}">${Number(p.pnl||0).toFixed(2)}</td>
+        <td class="p-3 text-center">${p.status}${p.exit_reason?` (${p.exit_reason})`:""}</td>
+        <td class="p-3 text-center">
+          <button class="btn btn-red text-xs" onclick="squareoff('${p.symbol}')">Squareoff</button>
+        </td>
+      </tr>`;
+    });
+  }
+
+  async function squareoff(sym){
+    const r = await fetch("/api/position/squareoff",{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({user_id:USER_ID, symbol:sym})
+    });
+    const d = await r.json();
+    if(d.error){ toast("❌ "+d.error,true); return; }
+    toast("✅ Squareoff sent");
+    refreshPositions();
+  }
+
+  async function killSwitch(){
+    if(!confirm("Kill switch ON?")) return;
+    await fetch("/api/kill-switch",{method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({user_id:USER_ID, enabled:true})});
+    toast("🛑 Kill ON", true);
+  }
+
+  // ---------- Alerts UI ----------
+  const ALERTS = []; // recent
+  const MAX_ALERTS = 60;
+
+  function renderAlerts(){
+    const tbody=document.getElementById("alertsBody");
+    if(ALERTS.length===0){
+      tbody.innerHTML=`<tr><td colspan="7" class="p-10 text-center text-cyan-900/70 italic">Waiting for webhook…</td></tr>`;
+      return;
+    }
+    tbody.innerHTML="";
+    ALERTS.slice(0, MAX_ALERTS).forEach(a=>{
+      a.symbols.forEach(s=>{
+        tbody.innerHTML += `<tr>
+          <td class="p-3 font-bold text-cyan-200">${a.alert_name}</td>
+          <td class="p-3 font-bold">${s}</td>
+          <td class="p-3 text-center" id="altp-${s}">--</td>
+          <td class="p-3 text-center" id="apct-${s}">--</td>
+          <td class="p-3 text-center" id="atbq-${s}">--</td>
+          <td class="p-3 text-center" id="atsq-${s}">--</td>
+          <td class="p-3 text-center text-slate-400 text-xs">${(a.result||[]).find(x=>x.symbol===s)?.status||""}</td>
+        </tr>`;
+      });
+    });
+  }
+
+  // ---------- WebSocket feed ----------
+  function wsUrl(){
+    const p = location.protocol==="https:" ? "wss" : "ws";
+    return `${p}://${location.host}/ws/feed?user_id=${USER_ID}`;
+  }
+
+  let WS=null;
+  function startWS(){
+    const b=document.getElementById("wsbadge");
+    WS = new WebSocket(wsUrl());
+    WS.onopen=()=>{ b.textContent="WS • LIVE"; };
+    WS.onclose=()=>{ b.textContent="WS • RECONNECT"; setTimeout(startWS, 1200); };
+    WS.onerror=()=>{ try{WS.close()}catch{} };
+
+    WS.onmessage=(ev)=>{
+      let d; try{ d = JSON.parse(ev.data); }catch{ return; }
+
+      if(d.type==="alert"){
+        ALERTS.unshift({alert_name:d.alert_name, symbols:d.symbols||[], result:d.result||[]});
+        renderAlerts();
+        refreshPositions();
+      }
+
+      if(d.type==="tick"){
+        const s=d.symbol;
+        const ltp=Number(d.ltp||0);
+        const close=Number(d.close||ltp);
+        const pct = close>0 ? ((ltp-close)/close*100) : 0;
+
+        const a1=document.getElementById(`altp-${s}`); if(a1) a1.textContent=ltp.toFixed(2);
+        const a2=document.getElementById(`apct-${s}`); if(a2) a2.textContent=pct.toFixed(2)+"%";
+        const a3=document.getElementById(`atbq-${s}`); if(a3) a3.textContent=d.tbq||0;
+        const a4=document.getElementById(`atsq-${s}`); if(a4) a4.textContent=d.tsq||0;
+
+        const p1=document.getElementById(`pltp-${s}`); if(p1) p1.textContent=ltp.toFixed(2);
+        // pnl updated from server; can keep client calc too if you want
+      }
+
+      if(d.type==="pos"){
+        refreshPositions();
+      }
+    };
+
+    // keepalive ping
+    setInterval(()=>{ try{ WS.send("ping"); }catch{} }, 20000);
+  }
+
+  // INIT
+  document.addEventListener("DOMContentLoaded", async ()=>{
+    await refreshZ();
+    setInterval(refreshZ, 5000);
+    await refreshPositions();
+    startWS();
+  });
+</script>
+
+</body>
+</html>
