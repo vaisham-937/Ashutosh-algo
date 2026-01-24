@@ -72,6 +72,7 @@
       border-color: rgba(34,211,238,.70);
       box-shadow: 0 0 0 3px rgba(34,211,238,.15);
     }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
   </style>
 </head>
 <body>
@@ -80,7 +81,7 @@
   <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
     <div class="flex items-center gap-5">
       <h1 class="text-3xl font-black tracking-tighter">
-        <span class="text-white">Ash</span><span class="text-cyan-400">ALGO</span>
+        <span class="text-white">Ash</span><span class="text-cyan-400"> ALGO</span>
       </h1>
       <div class="px-3 py-1 rounded-full bg-cyan-950/40 text-cyan-300 text-xs font-medium">
         user • {{USER_ID}}
@@ -103,7 +104,10 @@
   <section>
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-2xl font-extrabold text-cyan-300">⚡ Live Chartink Alerts</h2>
-      <div class="text-sm text-slate-400">instant WS feed</div>
+      <div class="flex items-center gap-3">
+        <button class="btn btn-slate text-sm" onclick="loadAlerts()">Refresh Alerts</button>
+        <div id="alertCount" class="badge">Alerts • 0</div>
+      </div>
     </div>
 
     <div class="glass rounded-2xl overflow-hidden shadow-2xl shadow-black/70">
@@ -112,6 +116,7 @@
           <thead class="bg-black/60">
             <tr>
               <th class="p-4 text-left">Alert</th>
+              <th class="p-4 text-left">Time</th>
               <th class="p-4 text-left">Symbol</th>
               <th class="p-4 text-center">LTP</th>
               <th class="p-4 text-center">%Chg</th>
@@ -121,7 +126,7 @@
             </tr>
           </thead>
           <tbody id="alertsBody" class="divide-y divide-cyan-900/30">
-            <tr><td colspan="7" class="p-10 text-center text-cyan-900/70 italic">Waiting for webhook…</td></tr>
+            <tr><td colspan="8" class="p-10 text-center text-cyan-900/70 italic">Waiting for webhook…</td></tr>
           </tbody>
         </table>
       </div>
@@ -288,11 +293,10 @@
     </div>
 
     <div class="flex gap-4 mt-8">
-  <button class="btn btn-cyan flex-1" onclick="saveCfg()">Save Config</button>
-  <button class="btn btn-slate flex-1" onclick="loadCfgList()">Reload</button>
-  <button class="btn btn-slate flex-1" onclick="closeCfg()">⬅ Back</button>
-</div>
-
+      <button class="btn btn-cyan flex-1" onclick="saveCfg()">Save Config</button>
+      <button class="btn btn-slate flex-1" onclick="loadCfgList()">Reload</button>
+      <button class="btn btn-slate flex-1" onclick="closeCfg()">⬅ Back</button>
+    </div>
 
     <div class="mt-6">
       <div class="text-sm text-slate-400 mb-2">Existing configs:</div>
@@ -427,6 +431,150 @@
     document.getElementById("cfg_topn").value = c.top_n_sector||2;
   }
 
+  // ---------- Alerts ----------
+  const ALERTS = []; // most-recent alerts (sorted desc by time)
+  const MAX_ALERT_ROWS = 100;
+  let alertRenderPending = false;
+
+  function _formatTime(ts){
+  try{
+    const n = Number(ts);
+    if(!Number.isFinite(n) || n <= 0) return "--";
+
+    const d = new Date(n); // expects millis
+    if(Number.isNaN(d.getTime())) return "--";
+
+    // Force IST display (not browser local)
+    return d.toLocaleTimeString("en-IN", {
+      timeZone: "Asia/Kolkata",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false
+    });
+  }catch{
+    return "--";
+  }
+}
+function _toMillis(x){
+  // Accept epoch seconds or millis, number or string
+  const n = Number(x);
+  if(!Number.isFinite(n) || n <= 0) return 0;
+  return (n < 1e12) ? Math.round(n * 1000) : Math.round(n);
+}
+
+function _alertTimeMillis(a){
+  // Prefer stable epoch fields if your backend provides them
+  // (add these in backend if possible)
+  if(a.ts_ms) return _toMillis(a.ts_ms);
+  if(a.ts)    return _toMillis(a.ts);
+  if(a.epoch) return _toMillis(a.epoch);
+
+  // Try ISO strings (stable)
+  if(a.time){
+    const p = Date.parse(a.time);
+    if(!Number.isNaN(p)) return p;
+  }
+  if(a.timestamp){
+    const p = Date.parse(a.timestamp);
+    if(!Number.isNaN(p)) return p;
+  }
+
+  // If nothing parseable, DON'T invent time
+  return 0;
+}
+
+
+  function renderAlerts(){
+    const tbody=document.getElementById("alertsBody");
+    const cEl = document.getElementById("alertCount");
+    if(cEl) cEl.textContent = `Alerts • ${ALERTS.length}`;
+
+    if(ALERTS.length===0){
+      tbody.innerHTML=`<tr><td colspan="8" class="p-10 text-center text-cyan-900/70 italic">Waiting for webhook…</td></tr>`;
+      return;
+    }
+
+    // Build flattened rows: (alert x symbols) with cap
+    const rows = [];
+    let rowCount = 0;
+    for(const a of ALERTS){
+      const syms = Array.isArray(a.symbols) ? a.symbols : [];
+      for(const s of syms){
+        if(rowCount >= MAX_ALERT_ROWS) break;
+        const resultData = (a.result||[]).find(x=>x.symbol===s);
+        const status = resultData?.status||"";
+        const reason = resultData?.reason||"";
+        rows.push({alert: a.alert_name, time: a.time, symbol: s, status, reason});
+        rowCount++;
+      }
+      if(rowCount >= MAX_ALERT_ROWS) break;
+    }
+
+    const fragment = document.createDocumentFragment();
+    for(const r of rows){
+      const tr = document.createElement("tr");
+      const statusColor =
+        r.status === "ENTERED" ? "text-green-400" :
+        r.status === "SKIPPED" ? "text-yellow-400" :
+        r.status === "REJECTED" ? "text-red-400" :
+        r.status === "ERROR" ? "text-red-400" :
+        "text-slate-400";
+
+      const reasonDisplay = r.reason ? ` (${String(r.reason).slice(0,120)})` : "";
+      tr.innerHTML = `
+        <td class="p-3 font-bold text-cyan-200">${r.alert}</td>
+        <td class="p-3 text-slate-300">${_formatTime(r.time)}</td>
+        <td class="p-3 font-bold mono">${r.symbol}</td>
+        <td class="p-3 text-center mono" id="altp-${r.symbol}">--</td>
+        <td class="p-3 text-center mono" id="apct-${r.symbol}">--</td>
+        <td class="p-3 text-center mono" id="atbq-${r.symbol}">--</td>
+        <td class="p-3 text-center mono" id="atsq-${r.symbol}">--</td>
+        <td class="p-3 text-center text-xs ${statusColor}" title="${(r.reason||"").toString().replace(/"/g,"'")}">${r.status}${reasonDisplay}</td>
+      `;
+      fragment.appendChild(tr);
+    }
+
+    tbody.innerHTML = "";
+    tbody.appendChild(fragment);
+  }
+
+  function scheduleAlertRender(){
+    if(alertRenderPending) return;
+    alertRenderPending = true;
+    requestAnimationFrame(()=>{
+      renderAlerts();
+      alertRenderPending = false;
+    });
+  }
+
+  async function loadAlerts(){
+  try{
+    const d = await (await fetch(`/api/alerts?user_id=${USER_ID}&limit=100`)).json();
+    const alerts = d.alerts || [];
+    ALERTS.splice(0, ALERTS.length);
+    for(const a of alerts){
+      const t = _alertTimeMillis(a); // ✅ stable, no Date.now() fallback
+      ALERTS.push({
+        alert_name: a.alert_name || a.alert || "UNKNOWN",
+        symbols: Array.isArray(a.symbols)
+          ? a.symbols
+          : String(a.symbols||"").split(",").map(x=>x.trim()).filter(Boolean),
+        result: a.result || [],
+        time: t // ✅ 0 if unknown
+      });
+    }
+    // Sort: unknown times (0) go last
+    ALERTS.sort((x,y)=> (y.time||0) - (x.time||0));
+    if(ALERTS.length > 200) ALERTS.length = 200;
+    scheduleAlertRender();
+    if(alerts.length > 0) toast(`✅ Loaded ${alerts.length} alerts`);
+  }catch(e){
+    console.error("Failed to load alerts:", e);
+    toast("❌ Failed to load alerts", true);
+  }
+}
+
   // ---------- Positions ----------
   async function refreshPositions(){
     const d = await (await fetch(`/api/positions?user_id=${USER_ID}`)).json();
@@ -435,6 +583,8 @@
 
   function renderPositions(rows){
     const tbody=document.getElementById("posBody");
+    
+
     if(!rows || rows.length===0){
       tbody.innerHTML = `<tr><td colspan="10" class="p-10 text-center text-cyan-900/70 italic">No positions</td></tr>`;
       return;
@@ -442,14 +592,14 @@
     tbody.innerHTML="";
     rows.forEach(p=>{
       tbody.innerHTML += `<tr>
-        <td class="p-3 font-bold">${p.symbol}</td>
+        <td class="p-3 font-bold mono">${p.symbol}</td>
         <td class="p-3 text-slate-300">${p.alert_name||"-"}</td>
         <td class="p-3 text-center">${p.side}</td>
         <td class="p-3 text-center">${p.product}</td>
-        <td class="p-3 text-center">${p.qty}</td>
-        <td class="p-3 text-center">${Number(p.entry_price||0).toFixed(2)}</td>
-        <td class="p-3 text-center" id="pltp-${p.symbol}">${Number(p.ltp||0).toFixed(2)}</td>
-        <td class="p-3 text-center" id="ppnl-${p.symbol}">${Number(p.pnl||0).toFixed(2)}</td>
+        <td class="p-3 text-center mono">${p.qty}</td>
+        <td class="p-3 text-center mono">${Number(p.entry_price||0).toFixed(2)}</td>
+        <td class="p-3 text-center mono" id="pltp-${p.symbol}">${Number(p.ltp||0).toFixed(2)}</td>
+        <td class="p-3 text-center mono" id="ppnl-${p.symbol}">${Number(p.pnl||0).toFixed(2)}</td>
         <td class="p-3 text-center">${p.status}${p.exit_reason?` (${p.exit_reason})`:""}</td>
         <td class="p-3 text-center">
           <button class="btn btn-red text-xs" onclick="squareoff('${p.symbol}')">Squareoff</button>
@@ -475,32 +625,6 @@
     toast("🛑 Kill ON", true);
   }
 
-  // ---------- Alerts UI ----------
-  const ALERTS = []; // recent
-  const MAX_ALERTS = 60;
-
-  function renderAlerts(){
-    const tbody=document.getElementById("alertsBody");
-    if(ALERTS.length===0){
-      tbody.innerHTML=`<tr><td colspan="7" class="p-10 text-center text-cyan-900/70 italic">Waiting for webhook…</td></tr>`;
-      return;
-    }
-    tbody.innerHTML="";
-    ALERTS.slice(0, MAX_ALERTS).forEach(a=>{
-      a.symbols.forEach(s=>{
-        tbody.innerHTML += `<tr>
-          <td class="p-3 font-bold text-cyan-200">${a.alert_name}</td>
-          <td class="p-3 font-bold">${s}</td>
-          <td class="p-3 text-center" id="altp-${s}">--</td>
-          <td class="p-3 text-center" id="apct-${s}">--</td>
-          <td class="p-3 text-center" id="atbq-${s}">--</td>
-          <td class="p-3 text-center" id="atsq-${s}">--</td>
-          <td class="p-3 text-center text-slate-400 text-xs">${(a.result||[]).find(x=>x.symbol===s)?.status||""}</td>
-        </tr>`;
-      });
-    });
-  }
-
   // ---------- WebSocket feed ----------
   function wsUrl(){
     const p = location.protocol==="https:" ? "wss" : "ws";
@@ -508,50 +632,123 @@
   }
 
   let WS=null;
+  let pingTimer=null;
+
+  let posRefreshPending=false;
+  let tickUpdateQueue={};
+  let tickUpdatePending=false;
+
+  function schedulePosRefresh(){
+    if(posRefreshPending) return;
+    posRefreshPending = true;
+    setTimeout(async ()=>{
+      await refreshPositions();
+      posRefreshPending = false;
+    }, 500);
+  }
+
+  function scheduleTickUpdates(){
+    if(tickUpdatePending) return;
+    tickUpdatePending = true;
+    requestAnimationFrame(()=>{
+      for(const [s, data] of Object.entries(tickUpdateQueue)){
+        const ltp=Number(data.ltp||0);
+        const pct=Number(data.pct||0);
+
+        const a1=document.getElementById(`altp-${s}`); if(a1) a1.textContent=ltp ? ltp.toFixed(2) : "--";
+        const a2=document.getElementById(`apct-${s}`); if(a2) a2.textContent=(ltp ? pct.toFixed(2)+"%" : "--");
+        const a3=document.getElementById(`atbq-${s}`); if(a3) a3.textContent=(data.tbq ?? "--");
+        const a4=document.getElementById(`atsq-${s}`); if(a4) a4.textContent=(data.tsq ?? "--");
+
+        const p1=document.getElementById(`pltp-${s}`); if(p1) p1.textContent=ltp ? ltp.toFixed(2) : "--";
+      }
+      tickUpdateQueue = {};
+      tickUpdatePending = false;
+    });
+  }
+
   function startWS(){
     const b=document.getElementById("wsbadge");
-    WS = new WebSocket(wsUrl());
-    WS.onopen=()=>{ b.textContent="WS • LIVE"; };
-    WS.onclose=()=>{ b.textContent="WS • RECONNECT"; setTimeout(startWS, 1200); };
+    try{
+      WS = new WebSocket(wsUrl());
+    }catch{
+      b.textContent="WS • ERROR";
+      setTimeout(startWS, 1500);
+      return;
+    }
+    // 🔁 AJAX fallback if WebSocket is disconnected
+setInterval(()=>{
+  if(!WS || WS.readyState !== WebSocket.OPEN){
+    console.log("WS down → AJAX refresh");
+    loadAlerts();        // alerts reload
+    refreshPositions(); // positions reload
+  }
+}, 10000); // every 10 seconds
+
+
+    WS.onopen=()=>{
+      b.textContent="WS • LIVE";
+      if(pingTimer) clearInterval(pingTimer);
+      pingTimer = setInterval(()=>{ try{ WS.send("ping"); }catch{} }, 20000);
+    };
+
+    WS.onclose=()=>{
+      b.textContent="WS • RECONNECT";
+      if(pingTimer) { clearInterval(pingTimer); pingTimer=null; }
+      setTimeout(startWS, 1200);
+    };
     WS.onerror=()=>{ try{WS.close()}catch{} };
 
     WS.onmessage=(ev)=>{
       let d; try{ d = JSON.parse(ev.data); }catch{ return; }
 
       if(d.type==="alert"){
-        ALERTS.unshift({alert_name:d.alert_name, symbols:d.symbols||[], result:d.result||[]});
-        renderAlerts();
-        refreshPositions();
+        const syms = Array.isArray(d.symbols)
+          ? d.symbols
+          : String(d.symbols||"").split(",").map(x=>x.trim()).filter(Boolean);
+
+          const t = _alertTimeMillis(d); // ✅ stable if server sends
+
+        ALERTS.push({
+          alert_name: d.alert_name || d.alert || "UNKNOWN",
+          symbols: syms,
+          result: d.result || [],
+          time: t
+        });
+
+        ALERTS.sort((a,b)=> (b.time||0)-(a.time||0));
+        if (ALERTS.length > 200) ALERTS.length = 200;
+
+        scheduleAlertRender();
+        schedulePosRefresh();
+        return;
       }
 
       if(d.type==="tick"){
-        const s=d.symbol;
+        const s=String(d.symbol||"");
+        if(!s) return;
+
         const ltp=Number(d.ltp||0);
         const close=Number(d.close||ltp);
         const pct = close>0 ? ((ltp-close)/close*100) : 0;
 
-        const a1=document.getElementById(`altp-${s}`); if(a1) a1.textContent=ltp.toFixed(2);
-        const a2=document.getElementById(`apct-${s}`); if(a2) a2.textContent=pct.toFixed(2)+"%";
-        const a3=document.getElementById(`atbq-${s}`); if(a3) a3.textContent=d.tbq||0;
-        const a4=document.getElementById(`atsq-${s}`); if(a4) a4.textContent=d.tsq||0;
-
-        const p1=document.getElementById(`pltp-${s}`); if(p1) p1.textContent=ltp.toFixed(2);
-        // pnl updated from server; can keep client calc too if you want
+        tickUpdateQueue[s] = {ltp, pct, tbq:d.tbq, tsq:d.tsq};
+        scheduleTickUpdates();
+        return;
       }
 
-      if(d.type==="pos"){
-        refreshPositions();
+      if(d.type==="pos" || d.type==="pos_refresh"){
+        schedulePosRefresh();
+        return;
       }
     };
-
-    // keepalive ping
-    setInterval(()=>{ try{ WS.send("ping"); }catch{} }, 20000);
   }
 
   // INIT
   document.addEventListener("DOMContentLoaded", async ()=>{
     await refreshZ();
     setInterval(refreshZ, 5000);
+    await loadAlerts();
     await refreshPositions();
     startWS();
   });
