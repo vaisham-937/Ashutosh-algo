@@ -6,6 +6,7 @@ import time
 import uuid
 import logging
 import json
+from datetime import datetime
 from dataclasses import dataclass, asdict
 from typing import Any, Dict, Optional, Literal, List, Tuple
 from dataclasses import fields as _dc_fields
@@ -121,6 +122,47 @@ def _pct_dist(cur: float, ref: float) -> float:
     return ((cur - ref) / ref) * 100.0
 
 
+def _is_within_entry_window(start_time: str, end_time: str) -> bool:
+    """
+    Check if current IST time is within the entry time window.
+    
+    Args:
+        start_time: Entry start time in HH:MM format (e.g., "09:15")
+        end_time: Entry end time in HH:MM format (e.g., "15:15")
+    
+    Returns:
+        True if current time is within window, False otherwise
+    """
+    try:
+        import pytz
+        ist = pytz.timezone("Asia/Kolkata")
+        now = datetime.now(ist)
+        
+        # Parse start and end times
+        start_parts = start_time.strip().split(":")
+        end_parts = end_time.strip().split(":")
+        
+        if len(start_parts) != 2 or len(end_parts) != 2:
+            # Invalid format, allow by default
+            return True
+        
+        start_hour, start_min = int(start_parts[0]), int(start_parts[1])
+        end_hour, end_min = int(end_parts[0]), int(end_parts[1])
+        
+        # Create time objects for comparison
+        current_minutes = now.hour * 60 + now.minute
+        start_minutes = start_hour * 60 + start_min
+        end_minutes = end_hour * 60 + end_min
+        
+        # Check if current time is within window
+        return start_minutes <= current_minutes <= end_minutes
+        
+    except Exception as e:
+        log.debug("TIME_WINDOW_CHECK_FAIL | err=%s", e)
+        # On error, allow by default
+        return True
+
+
 # =========================
 # Data models
 # =========================
@@ -146,6 +188,10 @@ class AlertConfig:
     # sector filter
     sector_filter_on: bool = False
     top_n_sector: int = 2
+
+    # entry time window (IST format HH:MM)
+    entry_start_time: str = "09:15"
+    entry_end_time: str = "15:15"
 
     @staticmethod
     def from_dict(d: Dict[str, Any]) -> "AlertConfig":
@@ -179,6 +225,8 @@ class AlertConfig:
             trade_limit_per_day=int(d.get("trade_limit_per_day", 3) or 0),
             sector_filter_on=bool(d.get("sector_filter_on", False)),
             top_n_sector=int(d.get("top_n_sector", 2) or 2),
+            entry_start_time=str(d.get("entry_start_time", "09:15") or "09:15").strip(),
+            entry_end_time=str(d.get("entry_end_time", "15:15") or "15:15").strip(),
         )
 
 
@@ -455,37 +503,39 @@ class TradeEngine:
 
             # Entry fill
             if pos.entry_order_id == order_id:
-                if pos.entry_price <= 0:
-                    pos.entry_price = float(avg)
+                # ALWAYS update entry price on fill (slippage handling)
+                old_entry = pos.entry_price
+                pos.entry_price = float(avg)
 
-                # recompute levels if missing
+                # ALWAYS recalculate levels based on actual fill price
                 if pos.product == "MIS" and pos.entry_price > 0:
-                    if pos.target_price <= 0 and pos.target_pct > 0:
-                        if pos.side == "BUY":
-                            pos.target_price = pos.entry_price * (1.0 + pos.target_pct / 100.0)
-                        else:
-                            pos.target_price = pos.entry_price * (1.0 - pos.target_pct / 100.0)
+                    # Retrieve config % from stored values (you might need to ensure they are stored in pos)
+                    # or fallback to current pos values if calculated.
+                    # Best: use cfg_*_pct if available, else derive.
+                    
+                    # We stored cfg_*_pct in _try_enter, let's use them if available, else fallback
+                    tgt_pct = getattr(pos, "cfg_target_pct", 0.0) or pos.target_pct
+                    sl_pct = getattr(pos, "cfg_sl_pct", 0.0) or pos.stop_loss_pct
+                    tsl_pct = getattr(pos, "cfg_tsl_pct", 0.0) or pos.trailing_sl_pct
 
-                    if pos.sl_price <= 0 and pos.stop_loss_pct > 0:
-                        if pos.side == "BUY":
-                            pos.sl_price = pos.entry_price * (1.0 - pos.stop_loss_pct / 100.0)
-                        else:
-                            pos.sl_price = pos.entry_price * (1.0 + pos.stop_loss_pct / 100.0)
-
-                    if pos.tsl_pct <= 0 and pos.trailing_sl_pct > 0:
-                        pos.tsl_pct = pos.trailing_sl_pct
-
-                    if pos.highest <= 0:
+                    if pos.side == "BUY":
+                        pos.target_price = pos.entry_price * (1.0 + tgt_pct / 100.0)
+                        pos.sl_price = pos.entry_price * (1.0 - sl_pct / 100.0)
                         pos.highest = pos.entry_price
-                    if pos.lowest <= 0:
+                    else:
+                        pos.target_price = pos.entry_price * (1.0 - tgt_pct / 100.0)
+                        pos.sl_price = pos.entry_price * (1.0 + sl_pct / 100.0)
                         pos.lowest = pos.entry_price
+
+                    pos.tsl_pct = tsl_pct
 
                 pos.updated_ts = time.time()
 
                 log.info(
-                    "\n%s\n%s",
-                    _bold(_green("✅ ENTRY_FILL")),
+                    "\n%s\n%s\n%s",
+                    _bold(_green("✅ ENTRY_FILL_UPDATED")),
                     _dim(_j(user=self.user_id, symbol=sym, oid=order_id, txn=txn, filled=filled_qty, avg=avg)),
+                    _dim(f"entry_adj: {old_entry:.2f} -> {pos.entry_price:.2f} | TGT: {pos.target_price:.2f} SL: {pos.sl_price:.2f}"),
                 )
                 try:
                     await self.store.upsert_position(self.user_id, sym, pos.to_public())
@@ -653,8 +703,16 @@ class TradeEngine:
             log.warning("⚠️ CFG_DISABLED | user=%s alert=%s", self.user_id, alert_key)
             return [{"symbol": _safe_symbol(s), "status": "SKIPPED", "reason": "CFG_DISABLED"} for s in symbols]
 
+        # Check entry time window
+        if not _is_within_entry_window(cfg.entry_start_time, cfg.entry_end_time):
+            log.warning(
+                "⏰ OUTSIDE_ENTRY_WINDOW | user=%s alert=%s start=%s end=%s",
+                self.user_id, alert_key, cfg.entry_start_time, cfg.entry_end_time
+            )
+            return [{"symbol": _safe_symbol(s), "status": "REJECTED", "reason": "OUTSIDE_ENTRY_WINDOW"} for s in symbols]
+
         log.info(
-            "✅ CFG_OK | user=%s alert=%s dir=%s product=%s qty_mode=%s limit=%s sector_filter=%s topN=%s",
+            "✅ CFG_OK | user=%s alert=%s dir=%s product=%s qty_mode=%s limit=%s sector_filter=%s topN=%s entry_window=%s-%s",
             self.user_id,
             alert_key,
             cfg.direction,
@@ -663,6 +721,8 @@ class TradeEngine:
             cfg.trade_limit_per_day,
             cfg.sector_filter_on,
             cfg.top_n_sector,
+            cfg.entry_start_time,
+            cfg.entry_end_time,
         )
 
         for sym in symbols:
@@ -741,7 +801,7 @@ class TradeEngine:
                 log.warning("❌ BAD_QTY | user=%s alert=%s symbol=%s ltp=%.2f qty=%s", self.user_id, alert_key, symbol, ltp, qty)
                 return {"symbol": symbol, "status": "REJECTED", "reason": "BAD_QTY"}
 
-            allowed = await self.store.allow_trade(self.user_id, alert_key, symbol, cfg.trade_limit_per_day)
+            allowed = await self.store.allow_trade(self.user_id, alert_key, cfg.trade_limit_per_day)
             if not allowed:
                 log.info("⛔ TRADE_LIMIT | user=%s alert=%s symbol=%s limit=%s/day", self.user_id, alert_key, symbol, cfg.trade_limit_per_day)
                 return {"symbol": symbol, "status": "SKIPPED", "reason": "TRADE_LIMIT"}
@@ -1175,7 +1235,8 @@ class TradeEngine:
         pos = self.positions.get(symbol)
         if pos and pos.status == "OPEN":
             log.info("🖐️ MANUAL_EXIT_MEM | user=%s symbol=%s reason=%s", self.user_id, symbol, reason)
-            return await self.manual(symbol, reason=reason)
+            await self._exit_position(symbol, reason)
+            return {"status": "EXIT_TRIGGERED", "symbol": symbol, "reason": reason, "source": "MEMORY"}
 
         # Ensure kite ready
         ok = await self._ensure_kite_ready()
@@ -1199,7 +1260,7 @@ class TradeEngine:
         # Find position for this symbol with non-zero qty
         found = None
         for r in rows:
-            tsym = str(r.get("tradingsymbol") or "").strip().upper()
+            tsym = norm_symbol(str(r.get("tradingsymbol") or ""))
             if tsym != symbol:
                 continue
             qty = int(r.get("quantity") or 0)  # net quantity (+ long, - short)
@@ -1367,3 +1428,25 @@ class TradeEngine:
             self._exit_inflight[symbol] = False
             self._exit_signal_sent[symbol] = False
             log.debug("🏁 EXIT_DONE | user=%s symbol=%s", self.user_id, symbol)
+
+    async def exit_all_open_positions(self, reason: str = "AUTO_SQ_OFF") -> int:
+        """
+        Trigger exit for ALL open positions (e.g. at 3:15 PM).
+        Returns number of positions triggered.
+        """
+        count = 0
+        # Snapshot keys to avoid runtime dict change errors if async
+        symbols = [s for s, p in self.positions.items() if p.status == "OPEN"]
+        
+        if not symbols:
+            return 0
+
+        log.info("⏰ EXIT_ALL_TRIGGER | user=%s reason=%s count=%s symbols=%s", self.user_id, reason, len(symbols), symbols)
+
+        for sym in symbols:
+            # fire and forget exits (they have their own locks/logging)
+            asyncio.create_task(self._exit_position(sym, reason))
+            count += 1
+        
+        return count
+

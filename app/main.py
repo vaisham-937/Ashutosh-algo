@@ -237,20 +237,26 @@ async def _ensure_token_map_ready(user_id: int) -> None:
         # double-check after acquiring lock
         if SYMBOL_TOKEN:
             return
-
         ok = await is_session_valid(user_id)
         if not ok:
             return
-
         built = await build_symbol_token_map_from_kite(user_id)
         if not built:
             return
-
     # after map is ready, subscribe pending symbols
     pending = list(PENDING_SYMBOLS.get(user_id, set()))
     if pending:
         await subscribe_symbols_for_user(user_id, pending)
         PENDING_SYMBOLS[user_id] = set()
+        # 🔥 FIX: resubscribe tokens if ticker is already running
+    if KT and KT_CONNECTED and SUB_TOKENS:
+        try:
+            KT.subscribe(list(SUB_TOKENS))
+            KT.set_mode(KT.MODE_FULL, list(SUB_TOKENS))
+            print("[KT] re-subscribed after token map ready:", len(SUB_TOKENS))
+        except Exception as e:
+            print("[KT] re-subscribe failed:", e)
+
 
 
 # -----------------------------
@@ -387,6 +393,7 @@ async def start_kite_ticker(user_id: int) -> None:
                 eng = await ensure_engine(user_id)
 
                 for t in ticks or []:
+
                     try:
                         tok = int(t.get("instrument_token", 0))
                         sym = TOKEN_TO_SYMBOL.get(tok)
@@ -402,7 +409,7 @@ async def start_kite_ticker(user_id: int) -> None:
 
                         tbq = float(t.get("buy_quantity") or 0.0)
                         tsq = float(t.get("sell_quantity") or 0.0)
-
+                        # ✅ PROPER PER-STOCK LOG
                         # Feed engine with proper OHLC (important for sector ranking)
                         pos = await eng.on_tick(sym, ltp, close, high, low, tbq, tsq)
 
@@ -456,14 +463,55 @@ async def start_kite_ticker(user_id: int) -> None:
             asyncio.run_coroutine_threadsafe(_handle_ou(), loop)
 
         kt.on_order_update = on_order_update
-
-
         def _run():
-            kt.connect(threaded=True)
+            try:
+                kt.connect(threaded=True)
+            except Exception as e:
+                print("[KT] connect thread error:", e)
 
         loop = asyncio.get_running_loop()
         KT_TASK = loop.run_in_executor(None, _run)
         print("[KT] connect thread started")
+
+
+# -----------------------------
+# Auto Square Off Scheduler
+# -----------------------------
+async def schedule_auto_squareoff():
+    """
+    Runs every 30s. Checks if time >= 15:15 IST.
+    If yes, and enabled, and not run yet today -> triggers exit_all.
+    """
+    while True:
+        try:
+            await asyncio.sleep(20) # check freq
+            
+            # Simple IST check
+            tz = pytz.timezone("Asia/Kolkata")
+            now = datetime.datetime.now(tz)
+            
+            # Target: 15:15 (3:15 PM)
+            if now.hour == 15 and now.minute >= 15:
+                # Check all users (currently only 1 supported primarily, but loop capable)
+                user_ids = [1] 
+                
+                for uid in user_ids:
+                    if await store.is_auto_sq_off_enabled(uid):
+                        if not await store.has_auto_sq_off_run(uid):
+                            print(f"⏰ [AUTO_SQ_OFF] Triggering for user={uid} at {now}")
+                            eng = await ensure_engine(uid)
+                            cnt = await eng.exit_all_open_positions(reason="AUTO_SQ_OFF_315")
+                            await store.mark_auto_sq_off_run(uid)
+                            
+                            # Notify UI
+                            ws_mgr.broadcast_nowait(uid, {
+                                "type": "toast", 
+                                "text": f"⏰ Auto Square Off Triggered ({cnt} positions)",
+                                "error": False
+                            })
+        except Exception as e:
+            print("[SCHED] Auto sq off error:", e)
+            await asyncio.sleep(10)
 
 
 # -----------------------------
@@ -476,6 +524,9 @@ async def startup():
     ws_mgr.set_loop(APP_LOOP)
 
     await store.init_scripts()
+    
+    # Start Scheduler
+    asyncio.create_task(schedule_auto_squareoff())
 
     # Auto-start if already logged in
     try:
@@ -609,8 +660,18 @@ async def save_alert_config(payload: Dict[str, Any]) -> Dict[str, Any]:
     payload2["alert_name"] = alert_name
     payload2["alert_name_raw"] = str(raw_name)
 
-    await store.set_alert_config(user_id, alert_name, payload2)
-    return {"ok": True, "alert_name": alert_name}
+    await store.save_alert_config(user_id, payload2)
+    return {"status": "saved", "config": payload2}
+
+
+@app.delete("/api/alert-config")
+async def delete_alert_config_api(payload: Dict[str, Any]) -> Dict[str, Any]:
+    user_id = int(payload.get("user_id", 1))
+    alert_name = str(payload.get("alert_name", "")).strip()
+    deleted = await store.delete_alert_config(user_id, alert_name)
+    if not deleted:
+        return {"status": "not_found", "deleted": False}
+    return {"status": "deleted", "deleted": True}
 
 
 # -----------------------------
@@ -722,7 +783,6 @@ async def api_squareoff(payload: Dict[str, Any]) -> Dict[str, Any]:
     eng = await ensure_engine(user_id)
 
     print(f"🖱️ [SQUAREOFF_CLICK] user={user_id} raw='{raw_symbol}' sym='{symbol}' reason={reason}")
-
     ok = await is_session_valid(user_id)
     if not ok:
         raise HTTPException(status_code=400, detail={"error": "ZERODHA_NOT_CONNECTED"})
@@ -744,6 +804,33 @@ async def api_kill(payload: Dict[str, Any]) -> Dict[str, Any]:
     enabled = bool(payload.get("enabled", True))
     await store.set_kill(user_id, enabled)
     return {"ok": True, "enabled": enabled}
+
+
+# -----------------------------
+# Auto Square Off Config
+# -----------------------------
+@app.get("/api/auto-sq-off/status")
+async def get_auto_sq_off(user_id: int = 1) -> Dict[str, Any]:
+    enabled = await store.is_auto_sq_off_enabled(int(user_id))
+    return {"enabled": enabled}
+
+@app.post("/api/auto-sq-off/toggle")
+async def toggle_auto_sq_off(payload: Dict[str, Any]) -> Dict[str, Any]:
+    user_id = int(payload.get("user_id", 1))
+    enabled = bool(payload.get("enabled", False))
+    await store.set_auto_sq_off_enabled(user_id, enabled)
+    return {"enabled": enabled}
+
+@app.post("/api/subscribe-symbols")
+async def api_subscribe_symbols(payload: Dict[str, Any]):
+    user_id = int(payload.get("user_id", 1))
+    symbols = payload.get("symbols", [])
+
+    if not symbols:
+        return {"ok": False, "error": "NO_SYMBOLS"}
+
+    await subscribe_symbols_for_user(user_id, symbols)
+    return {"ok": True, "subscribed": symbols}
 
 
 # -----------------------------

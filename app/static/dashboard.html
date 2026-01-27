@@ -1,758 +1,1303 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>AlgoEdge • </title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>AlgoEdge • Pro</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@500;600;700&display=swap"
+    rel="stylesheet">
   <style>
-    :root{
-      --bg:#05060a;
-      --panel:rgba(12,16,28,.72);
-      --cyan:#22d3ee;
-      --muted:#94a3b8;
+    :root {
+      --bg: #030712;
+      --cyan: #22d3ee;
+      --cyan-dim: rgba(34, 211, 238, 0.1);
+      --glass: rgba(17, 24, 39, 0.7);
+      --glass-border: rgba(255, 255, 255, 0.08);
     }
-    body{
-      background: var(--bg);
-      color:#e5e7eb;
+
+    body {
+      background-color: #020617;
+      color: #f3f4f6;
+      font-family: 'Inter', system-ui, sans-serif;
+      /* Premium Deep Mesh Gradient Animated */
       background-image:
-        radial-gradient(circle at 15% 40%, rgba(34,211,238,.16) 0%, transparent 35%),
-        radial-gradient(circle at 85% 20%, rgba(56,189,248,.12) 0%, transparent 40%);
-      background-attachment:fixed;
-      font-family: ui-sans-serif, system-ui;
+        radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(124, 58, 237, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.1) 0px, transparent 50%),
+        radial-gradient(at 0% 100%, rgba(16, 185, 129, 0.1) 0px, transparent 50%);
+      background-size: 150% 150%;
+      background-attachment: fixed;
+      animation: aurora 20s ease infinite alternate;
+      overflow-x: hidden;
     }
-    .glass{
-      background: var(--panel);
-      backdrop-filter: blur(14px);
-      border:1px solid rgba(34,211,238,.12);
+
+    /* Headings */
+    h1,
+    h2,
+    h3 {
+      font-family: 'Outfit', sans-serif;
+      letter-spacing: -0.02em;
     }
-    .badge{
-      padding:.55rem 1rem;
-      border-radius:999px;
-      border:1px solid rgba(34,211,238,.12);
-      background:rgba(0,0,0,.35);
-      font-weight:600;
-      font-size:.85rem;
+
+    /* Glass Effect */
+    .glass {
+      background: var(--glass);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
     }
-    .btn{
-      padding:.65rem 1.05rem;
-      border-radius:.9rem;
-      font-weight:700;
-      transition:.15s;
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
     }
-    .btn:hover{ transform: translateY(-1px); }
-    .btn-cyan{
-      background: linear-gradient(180deg, rgba(8,145,178,.96), rgba(6,182,212,.92));
-      box-shadow:0 16px 40px rgba(34,211,238,.12);
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
     }
-    .btn-slate{
-      background: rgba(51,65,85,.65);
-      border:1px solid rgba(148,163,184,.18);
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 99px;
     }
-    .btn-red{
-      background: rgba(239,68,68,.18);
-      border:1px solid rgba(239,68,68,.35);
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.2);
     }
-    table th{ color: rgba(34,211,238,.85); font-weight:800; }
-    table td{ color:#e5e7eb; }
-    tr:hover{ background: rgba(34,211,238,.06); }
-    .modal-card{
-      background: radial-gradient(1200px 600px at 30% 0%, rgba(0,240,255,.10), transparent 60%),
-                  linear-gradient(180deg, rgba(10,16,30,.96), rgba(8,12,20,.96));
+
+    /* Animations */
+    @keyframes fade-in {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
-    .inp{
-      background: rgba(2,6,23,.55);
-      border: 1px solid rgba(148,163,184,.25);
-      border-radius: 14px;
-      padding: 12px 14px;
-      color:#e2e8f0;
-      outline:none;
+
+    @keyframes pulse-glow {
+
+      0%,
+      100% {
+        box-shadow: 0 0 15px var(--cyan-dim);
+      }
+
+      50% {
+        box-shadow: 0 0 25px rgba(34, 211, 238, 0.3);
+      }
     }
-    .inp:focus{
-      border-color: rgba(34,211,238,.70);
-      box-shadow: 0 0 0 3px rgba(34,211,238,.15);
+
+    /* Background Animation */
+    @keyframes aurora {
+      0% {
+        background-position: 0% 50%;
+      }
+
+      50% {
+        background-position: 100% 50%;
+      }
+
+      100% {
+        background-position: 0% 50%;
+      }
     }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+    /* Stars */
+    .star {
+      position: absolute;
+      background: white;
+      border-radius: 50%;
+      opacity: 0;
+      animation: twinkle var(--duration) ease-in-out infinite;
+      animation-delay: var(--delay);
+    }
+
+    @keyframes twinkle {
+      0% {
+        opacity: 0;
+        transform: scale(0.5);
+      }
+
+      50% {
+        opacity: var(--opacity);
+        transform: scale(1.2);
+      }
+
+      100% {
+        opacity: 0;
+        transform: scale(0.5);
+      }
+    }
+
+    .animate-enter {
+      animation: fade-in 0.4s ease-out forwards;
+    }
+
+    .delay-100 {
+      animation-delay: 0.1s;
+    }
+
+    .delay-200 {
+      animation-delay: 0.2s;
+    }
+
+    /* Components */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 99px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      transition: all 0.2s;
+    }
+
+    .badge:hover {
+      background: rgba(255, 255, 255, 0.07);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.6rem 1.25rem;
+      border-radius: 0.75rem;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn:active {
+      transform: scale(0.97);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 6px 20px rgba(6, 182, 212, 0.5);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.03);
+      color: #94a3b8;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: white;
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.1);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .btn-danger:hover {
+      background: rgba(239, 68, 68, 0.2);
+      color: white;
+      border-color: rgba(239, 68, 68, 0.4);
+    }
+
+    /* Tables */
+    .table-container {
+      border-radius: 1rem;
+      overflow: hidden;
+      border: 1px solid var(--glass-border);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th {
+      background: rgba(0, 0, 0, 0.3);
+      color: #94a3b8;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      padding: 1rem;
+      text-align: left;
+    }
+
+    td {
+      padding: 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      color: #cbd5e1;
+      font-size: 0.9rem;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    /* Inputs */
+    .input-field {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: white;
+      padding: 0.75rem 1rem;
+      border-radius: 0.75rem;
+      width: 100%;
+      transition: all 0.2s;
+    }
+
+    .input-field:focus {
+      outline: none;
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.15);
+      background: rgba(0, 0, 0, 0.5);
+    }
+
+    /* Mono font areas */
+    .font-mono {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    }
   </style>
 </head>
-<body>
 
-<header class="sticky top-0 z-50 glass border-b border-cyan-900/30">
-  <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-    <div class="flex items-center gap-5">
-      <h1 class="text-3xl font-black tracking-tighter">
-        <span class="text-white">Ash</span><span class="text-cyan-400"> ALGO</span>
-      </h1>
-      <div class="px-3 py-1 rounded-full bg-cyan-950/40 text-cyan-300 text-xs font-medium">
-        user • {{USER_ID}}
-      </div>
-    </div>
+<body class="selection:bg-cyan-500/30 selection:text-cyan-200">
 
-    <div class="flex items-center gap-3">
-      <div id="zbadge" class="badge">Zerodha • …</div>
-      <div id="wsbadge" class="badge">WS • …</div>
+  <!-- Stars Container -->
+  <div id="stars" class="fixed inset-0 pointer-events-none z-0"></div>
 
-      <button class="btn btn-cyan" onclick="openCred()">Connect</button>
-      <button class="btn btn-slate" onclick="openCfg()">Alert Config</button>
-      <button class="btn btn-red" onclick="killSwitch()">KILL</button>
-    </div>
-  </div>
-</header>
-
-<main class="max-w-7xl mx-auto px-6 py-10 space-y-12">
-
-  <section>
-    <div class="flex items-center justify-between mb-4">
-      <h2 class="text-2xl font-extrabold text-cyan-300">⚡ Live Chartink Alerts</h2>
-      <div class="flex items-center gap-3">
-        <button class="btn btn-slate text-sm" onclick="loadAlerts()">Refresh Alerts</button>
-        <div id="alertCount" class="badge">Alerts • 0</div>
-      </div>
-    </div>
-
-    <div class="glass rounded-2xl overflow-hidden shadow-2xl shadow-black/70">
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead class="bg-black/60">
-            <tr>
-              <th class="p-4 text-left">Alert</th>
-              <th class="p-4 text-left">Time</th>
-              <th class="p-4 text-left">Symbol</th>
-              <th class="p-4 text-center">LTP</th>
-              <th class="p-4 text-center">%Chg</th>
-              <th class="p-4 text-center">TBQ</th>
-              <th class="p-4 text-center">TSQ</th>
-              <th class="p-4 text-center">Action</th>
-            </tr>
-          </thead>
-          <tbody id="alertsBody" class="divide-y divide-cyan-900/30">
-            <tr><td colspan="8" class="p-10 text-center text-cyan-900/70 italic">Waiting for webhook…</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-
-  <section>
-    <div class="flex items-center justify-between mb-4">
-      <h2 class="text-2xl font-extrabold text-cyan-300">📌 Open Positions (Algo)</h2>
-      <button class="btn btn-slate" onclick="refreshPositions()">Refresh</button>
-    </div>
-
-    <div class="glass rounded-2xl overflow-hidden shadow-2xl shadow-black/70">
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead class="bg-black/60">
-            <tr>
-              <th class="p-4 text-left">Symbol</th>
-              <th class="p-4 text-left">Alert</th>
-              <th class="p-4 text-center">Side</th>
-              <th class="p-4 text-center">Product</th>
-              <th class="p-4 text-center">Qty</th>
-              <th class="p-4 text-center">Entry</th>
-              <th class="p-4 text-center">LTP</th>
-              <th class="p-4 text-center">PnL</th>
-              <th class="p-4 text-center">Status</th>
-              <th class="p-4 text-center">Action</th>
-            </tr>
-          </thead>
-          <tbody id="posBody" class="divide-y divide-cyan-900/30">
-            <tr><td colspan="10" class="p-10 text-center text-cyan-900/70 italic">No positions</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-</main>
-
-
-<!-- ================= CREDENTIALS MODAL ================= -->
-<div id="credModal" class="fixed inset-0 hidden bg-black/75 backdrop-blur-md flex items-center justify-center z-50">
-  <div class="modal-card rounded-3xl p-10 w-full max-w-md border border-slate-700/50 shadow-2xl shadow-black/60">
-    <div class="flex items-center justify-between mb-8">
-      <h2 class="text-2xl font-semibold text-cyan-400 flex items-center gap-3">
-        <span class="inline-flex items-center justify-center w-10 h-10 rounded-xl"
-              style="background: rgba(34,211,238,.10); border: 1px solid rgba(34,211,238,.20);">🛡️</span>
-        Zerodha API Credentials
-      </h2>
-      <button onclick="closeCred()" class="text-slate-300 hover:text-white text-2xl">✕</button>
-    </div>
-
-    <p class="text-sm text-slate-400 mb-8">Securely connect your Zerodha account.</p>
-
-    <div class="mb-6">
-      <label class="block text-sm font-medium text-slate-300 mb-2">API Key</label>
-      <div class="relative">
-        <input id="api_key" type="password" placeholder="xxxxxxxxxxxxxxxxxxxxxxxx" class="w-full inp pr-14"/>
-        <button type="button" onclick="toggleVisibility('api_key')" class="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-xl text-slate-300 hover:text-cyan-300"
-                style="background: rgba(34,211,238,.06); border: 1px solid rgba(34,211,238,.10);">⊙</button>
-      </div>
-    </div>
-
-    <div class="mb-8">
-      <label class="block text-sm font-medium text-slate-300 mb-2">API Secret</label>
-      <div class="relative">
-        <input id="api_secret" type="password" placeholder="xxxxxxxxxxxxxxxxxxxxxxxx" class="w-full inp pr-14"/>
-        <button type="button" onclick="toggleVisibility('api_secret')" class="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-xl text-slate-300 hover:text-cyan-300"
-                style="background: rgba(34,211,238,.06); border: 1px solid rgba(34,211,238,.10);">⊙</button>
-      </div>
-    </div>
-
-    <div class="flex gap-4">
-      <button class="btn btn-cyan flex-3" onclick="saveCred()">⎙ Save Credentials</button>
-      <button class="btn btn-slate flex-1" onclick="connectZerodha()">🔗 Login to Kite</button>
-    </div>
-  </div>
-</div>
-
-
-<!-- ================= ALERT CONFIG MODAL ================= -->
-<div id="cfgModal"
-     class="fixed inset-0 hidden bg-black/70 backdrop-blur flex items-start justify-center z-50 overflow-y-auto py-10">
-  <div class="modal-card rounded-3xl p-10 w-full max-w-2xl border border-slate-700/50 shadow-2xl shadow-black/60">
-    <div class="flex items-center justify-between mb-6">
-      <h2 class="text-2xl font-semibold text-cyan-300">⚙️ Alert Configuration</h2>
-      <button onclick="closeCfg()" class="text-slate-300 hover:text-white text-2xl">✕</button>
-    </div>
-
-    <div class="grid grid-cols-2 gap-4">
-      <div>
-        <label class="text-sm text-slate-300">Alert Name (exact Chartink)</label>
-        <input id="cfg_alert" class="w-full inp mt-1" placeholder="e.g. BREAKOUT_LONG"/>
-      </div>
-      <div>
-        <label class="text-sm text-slate-300">Enabled</label>
-        <select id="cfg_enabled" class="w-full inp mt-1">
-          <option value="true">true</option>
-          <option value="false">false</option>
-        </select>
-      </div>
-
-      <div>
-        <label class="text-sm text-slate-300">Direction</label>
-        <select id="cfg_dir" class="w-full inp mt-1">
-          <option>LONG</option>
-          <option>SHORT</option>
-        </select>
-      </div>
-
-      <div>
-        <label class="text-sm text-slate-300">Product</label>
-        <select id="cfg_prod" class="w-full inp mt-1">
-          <option>MIS</option>
-          <option>CNC</option>
-        </select>
-      </div>
-
-      <div>
-        <label class="text-sm text-slate-300">Qty Mode</label>
-        <select id="cfg_qtymode" class="w-full inp mt-1">
-          <option>CAPITAL</option>
-          <option>QTY</option>
-        </select>
-      </div>
-
-      <div>
-        <label class="text-sm text-slate-300">Capital / Qty</label>
-        <div class="flex gap-3 mt-1">
-          <input id="cfg_cap" class="w-full inp" type="number" value="20000"/>
-          <input id="cfg_qty" class="w-full inp" type="number" value="1"/>
+  <!-- Navbar -->
+  <nav class="fixed top-0 w-full z-50 glass border-b-0 border-b-white/5">
+    <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+      <div class="flex items-center gap-6">
+        <a href="#" class="flex items-center gap-2 group">
+          <div
+            class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white text-lg font-bold shadow-lg shadow-cyan-500/20 group-hover:scale-105 transition-transform duration-300">
+            A
+          </div>
+          <div class="flex flex-col">
+            <span
+              class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">AshAlgo</span>
+            <span class="text-[10px] text-cyan-400 font-semibold tracking-wider uppercase">Pro Terminal</span>
+          </div>
+        </a>
+        <div class="h-8 w-px bg-white/10 hidden md:block"></div>
+        <div
+          class="hidden md:flex items-center gap-2 text-xs font-medium text-slate-400 bg-white/5 px-3 py-1.5 rounded-full border border-white/5">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
+          User ID : <span class="text-slate-200">{{USER_ID}}</span>
         </div>
       </div>
 
-      <div>
-        <label class="text-sm text-slate-300">Target % (MIS)</label>
-        <input id="cfg_tgt" class="w-full inp mt-1" type="number" step="0.01" value="1.0"/>
+      <div class="flex items-center gap-4">
+        <div class="flex gap-2">
+          <!-- Broker Status -->
+          <div id="zbadge"
+            class="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20 shadow-[0_0_10px_rgba(244,63,94,0.2)] transition-all">
+            <span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block mr-1.5 animate-pulse"></span> DISCONNECTED
+          </div>
+          <!-- Feed Status -->
+          <div id="wsbadge"
+            class="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20 shadow-[0_0_10px_rgba(244,63,94,0.2)] transition-all">
+            <span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block mr-1.5 animate-pulse"></span> DISCONNECTED
+          </div>
+        </div>
+
+        <div class="h-8 w-px bg-white/10 mx-2"></div>
+
+        <!-- Square Off All Button (Header) -->
+        <button onclick="exitAllPositions()"
+          class="btn px-3 py-1.5 text-[10px] uppercase tracking-wider text-white shadow-lg transition-all bg-gradient-to-r from-fuchsia-500 to-cyan-500 border-none hover:shadow-cyan-500/50 hover:scale-105 active:scale-95">
+          <span class="w-1.5 h-1.5 rounded-full bg-white mr-1.5 animate-pulse"></span>
+          Square Off All
+        </button>
+
+        <div class="h-8 w-px bg-white/10 mx-2"></div>
+
+        <button onclick="openCred()" class="btn btn-secondary px-3" title="Settings">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
+            </path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z">
+            </path>
+          </svg>
+        </button>
+        <button onclick="openCfg()" class="btn btn-primary">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+          </svg>
+          Configure Alert
+        </button>
+        <button onclick="killSwitch()" class="btn btn-danger px-3" title="Emergency Kill Switch">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+          </svg>
+        </button>
       </div>
-      <div>
-        <label class="text-sm text-slate-300">Stop Loss % (MIS)</label>
-        <input id="cfg_sl" class="w-full inp mt-1" type="number" step="0.01" value="0.7"/>
-      </div>
-      <div>
-        <label class="text-sm text-slate-300">Trailing SL % (MIS)</label>
-        <input id="cfg_tsl" class="w-full inp mt-1" type="number" step="0.01" value="0.5"/>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto px-6 py-28 pb-12 space-y-12">
+
+    <!-- Alerts Section -->
+    <section class="animate-enter">
+      <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-4">
+          <div class="p-2.5 rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/20">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z">
+              </path>
+            </svg>
+          </div>
+          <div>
+            <h2 class="text-2xl font-bold text-white">Live Signals</h2>
+            <div class="flex items-center gap-2 mt-1">
+              <span id="alertCount"
+                class="text-xs font-semibold text-orange-300 bg-orange-500/10 px-2 py-0.5 rounded border border-orange-500/10">0
+                Alerts</span>
+              <span class="text-xs text-slate-500">Incoming from Chartink</span>
+            </div>
+          </div>
+        </div>
+        <button onclick="loadAlerts()" class="btn btn-secondary text-xs">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+            </path>
+          </svg>
+          Refresh Log
+        </button>
       </div>
 
-      <div>
-        <label class="text-sm text-slate-300">Trade Limit / Day</label>
-        <input id="cfg_limit" class="w-full inp mt-1" type="number" value="3"/>
+      <div class="glass table-container">
+        <div class="overflow-x-auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Alert Name</th>
+                <th>Time (IST)</th>
+                <th>Symbol</th>
+                <th class="text-right">Entry</th>
+                <th class="text-right">Target</th>
+                <th class="text-right">StopLoss</th>
+                <th class="text-right">TSL</th>
+                <th class="text-right">LTP</th>
+                <th class="text-right">% Change</th>
+                <th class="text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody id="alertsBody">
+              <tr>
+                <td colspan="10" class="text-center py-12 text-slate-500 italic">Waiting for incoming signals...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
+    </section>
 
-      <div class="col-span-2">
-        <label class="text-sm text-slate-300">Sector Filter</label>
-        <div class="flex items-center gap-4 mt-2">
-          <select id="cfg_sector_on" class="inp">
-            <option value="false">OFF</option>
-            <option value="true">ON</option>
-          </select>
-          <div class="text-slate-400 text-sm">Top N sectors:</div>
-          <input id="cfg_topn" class="inp w-28" type="number" value="2"/>
-          <div class="text-slate-400 text-sm">(LONG → top gainers, SHORT → top losers)</div>
+    <!-- Positions Section -->
+    <section class="animate-enter delay-100">
+      <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-4">
+          <div
+            class="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-lg shadow-cyan-500/10">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
+              </path>
+            </svg>
+          </div>
+          <div>
+            <h2 class="text-2xl font-bold text-white tracking-tight">Active Positions</h2>
+            <div class="flex items-center gap-4 mt-2">
+              <span id="posCount" class="badge bg-cyan-500/10 text-cyan-300 border-cyan-500/20 px-3 py-1 text-xs">0
+                Active</span>
+              <div id="totalPnlBadge"
+                class="text-xl font-bold font-mono tracking-tight px-4 py-1.5 rounded-lg border border-white/5 bg-slate-800/50 shadow-inner">
+                <span class="text-slate-500 text-sm font-sans mr-1">PnL</span>
+                <span class="text-slate-300">0.00</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <button onclick="refreshPositions()" class="btn btn-secondary px-3 py-2 text-xs">
+            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+              </path>
+            </svg>
+            Sync
+          </button>
+        </div>
+      </div>
+      <div class="glass table-container">
+        <div class="overflow-x-auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Symbol</th>
+                <th>Strategy</th>
+                <th class="text-center">Side</th>
+                <th class="text-center">Type</th>
+                <th class="text-right">Qty</th>
+                <th class="text-right">Entry</th>
+                <th class="text-right">Target</th>
+                <th class="text-right">StopLoss</th>
+                <th class="text-right">TSL</th>
+                <th class="text-right">LTP</th>
+                <th class="text-right">P&L</th>
+                <th class="text-center">State</th>
+                <th class="text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="posBody">
+              <tr>
+                <td colspan="13" class="text-center py-12 text-slate-500 italic">No active positions currently.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ================= MODALS ================= -->
+
+  <!-- Credentials Modal -->
+  <div id="credModal" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-black/90 backdrop-blur-md transition-opacity" onclick="closeCred()"></div>
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md p-1">
+      <!-- Gradient border wrapper -->
+      <div
+        class="relative rounded-2xl bg-gradient-to-b from-cyan-500/30 to-blue-600/10 p-[1px] shadow-2xl shadow-cyan-900/40 animate-enter">
+        <div class="glass rounded-2xl p-8 border-0 bg-[#0B1121]">
+          <button onclick="closeCred()"
+            class="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+
+          <div class="flex items-center gap-4 mb-6">
+            <div
+              class="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/20">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z">
+                </path>
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-xl font-bold text-white tracking-tight">Connect Broker</h3>
+              <div class="flex items-center gap-1.5 text-xs font-medium text-emerald-400">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Encrypted & Secure
+              </div>
+            </div>
+          </div>
+
+          <p class="text-sm text-slate-400 mb-6 leading-relaxed">
+            Enter your <strong>Zerodha Kite API</strong> credentials. These are stored locally on your machine for
+            trading execution.
+          </p>
+
+          <div class="space-y-5">
+            <div class="group">
+              <label
+                class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1 group-focus-within:text-cyan-400 transition-colors">API
+                Key</label>
+              <div class="relative">
+                <input id="api_key" type="password"
+                  class="w-full bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all placeholder:text-slate-700"
+                  placeholder="Enter API Key ••••••••••••">
+                <button type="button" onclick="toggleVisibility('api_key')"
+                  class="absolute inset-y-0 right-0 px-3 flex items-center text-slate-500 hover:text-cyan-400 transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z">
+                    </path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="group">
+              <label
+                class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1 group-focus-within:text-cyan-400 transition-colors">API
+                Secret</label>
+              <div class="relative">
+                <input id="api_secret" type="password"
+                  class="w-full bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all placeholder:text-slate-700"
+                  placeholder="Enter API Secret ••••••••••••">
+                <button type="button" onclick="toggleVisibility('api_secret')"
+                  class="absolute inset-y-0 right-0 px-3 flex items-center text-slate-500 hover:text-cyan-400 transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z">
+                    </path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-3 mt-8">
+            <button onclick="saveCred()"
+              class="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4">
+                </path>
+              </svg>
+              Save Secure Credentials
+            </button>
+            <button onclick="connectZerodha()"
+              class="w-full py-3 rounded-xl bg-white/5 text-slate-300 font-semibold border border-white/5 hover:bg-white/10 hover:text-white transition-all flex items-center justify-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1">
+                </path>
+              </svg>
+              Log in to Kite
+            </button>
+          </div>
         </div>
       </div>
     </div>
+  </div>
 
-    <div class="flex gap-4 mt-8">
-      <button class="btn btn-cyan flex-1" onclick="saveCfg()">Save Config</button>
-      <button class="btn btn-slate flex-1" onclick="loadCfgList()">Reload</button>
-      <button class="btn btn-slate flex-1" onclick="closeCfg()">⬅ Back</button>
-    </div>
+  <!-- Config Modal -->
+  <div id="cfgModal" class="fixed inset-0 z-[100] hidden overflow-y-auto">
+    <div class="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onclick="closeCfg()"></div>
+    <div class="relative min-h-screen flex items-center justify-center p-4">
+      <div class="glass rounded-2xl p-8 border border-white/10 shadow-2xl w-full max-w-2xl relative animate-enter my-8">
+        <button onclick="closeCfg()" class="absolute top-6 right-6 text-slate-400 hover:text-white">✕</button>
 
-    <div class="mt-6">
-      <div class="text-sm text-slate-400 mb-2">Existing configs:</div>
-      <div id="cfgList" class="text-sm text-slate-200 space-y-1 max-h-40 overflow-auto"></div>
+        <div class="flex items-center justify-between mb-8">
+          <div>
+            <h3 class="text-xl font-bold text-white">Strategy Configuration</h3>
+            <p class="text-sm text-slate-400">Define parameters for your Chartink alerts.</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="col-span-2 md:col-span-1">
+            <label class="block text-xs font-semibold text-cyan-400 uppercase mb-1.5">Alert Name</label>
+            <input id="cfg_alert" class="input-field" placeholder="e.g. BULLISH_BREAKOUT">
+            <p class="text-[10px] text-slate-500 mt-1">Must match Chartink alert name exactly</p>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase mb-1.5">Status</label>
+            <select id="cfg_enabled" class="input-field">
+              <option value="true">Active</option>
+              <option value="false">Paused</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase mb-1.5">Trade Direction</label>
+            <select id="cfg_dir" class="input-field">
+              <option value="LONG">LONG (Buy)</option>
+              <option value="SHORT">SHORT (Sell)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase mb-1.5">Product Type</label>
+            <select id="cfg_prod" class="input-field">
+              <option value="MIS">MIS (Intraday)</option>
+              <option value="CNC">CNC (Delivery)</option>
+            </select>
+          </div>
+
+          <div class="col-span-2 grid grid-cols-3 gap-6">
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 uppercase mb-1.5">Sizing Mode</label>
+              <select id="cfg_qtymode" class="input-field">
+                <option value="CAPITAL">Capital Based</option>
+                <option value="QTY">Fixed Quantity</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 uppercase mb-1.5">Capital (₹)</label>
+              <input id="cfg_cap" type="number" class="input-field" placeholder="e.g. 20000">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 uppercase mb-1.5">Fixed Qty</label>
+              <input id="cfg_qty" type="number" class="input-field" placeholder="e.g. 1">
+            </div>
+          </div>
+
+          <!-- Risk Management -->
+          <div class="col-span-2 border-t border-white/5 pt-4 mt-2">
+            <h4 class="text-sm font-bold text-white mb-4">Risk Management (MIS Only)</h4>
+            <div class="grid grid-cols-3 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-emerald-400 uppercase mb-1.5">Target %</label>
+                <input id="cfg_tgt" type="number" step="0.1" class="input-field">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-rose-400 uppercase mb-1.5">Stop Loss %</label>
+                <input id="cfg_sl" type="number" step="0.1" class="input-field">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-blue-400 uppercase mb-1.5">Trailing SL %</label>
+                <input id="cfg_tsl" type="number" step="0.1" class="input-field">
+              </div>
+            </div>
+          </div>
+
+          <!-- Entry Time Window -->
+          <div class="col-span-2 border-t border-white/5 pt-4 mt-2">
+            <h4 class="text-sm font-bold text-white mb-4">Entry Time Window</h4>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-cyan-400 uppercase mb-1.5">Entry Start Time</label>
+                <input id="cfg_entry_start" type="time" class="input-field" value="09:15">
+                <p class="text-[10px] text-slate-500 mt-1">Alerts before this time will be rejected</p>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-orange-400 uppercase mb-1.5">Entry End Time</label>
+                <input id="cfg_entry_end" type="time" class="input-field" value="15:15">
+                <p class="text-[10px] text-slate-500 mt-1">Alerts after this time will be rejected</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-span-2 border-t border-white/5 pt-4">
+            <div class="flex items-center gap-6">
+              <div class="flex-1">
+                <label class="block text-xs font-semibold text-slate-400 uppercase mb-1.5">Max Trades / Day</label>
+                <input id="cfg_limit" type="number" class="input-field">
+              </div>
+              <div class="flex-[1.5] grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-400 uppercase mb-1.5">Sector Filter</label>
+                  <select id="cfg_sector_on" class="input-field w-full">
+                    <option value="false">OFF</option>
+                    <option value="true">ON</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-400 uppercase mb-1.5">Top N Sectors</label>
+                  <input id="cfg_topn" type="number" class="input-field" placeholder="e.g. 2">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex gap-3 mt-8 pt-6 border-t border-white/10">
+          <button onclick="saveCfg()" class="btn btn-primary flex-1">Save Configuration</button>
+          <button onclick="loadCfgList()" class="btn btn-secondary">Reload</button>
+        </div>
+
+        <div class="mt-8">
+          <h4 class="text-xs font-bold text-slate-500 uppercase mb-3">Saved Strategies</h4>
+          <div id="cfgList" class="space-y-2 max-h-40 overflow-y-auto pr-2">
+            <!-- Items injected by JS -->
+          </div>
+        </div>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- Toast -->
-<div id="msg" class="fixed bottom-6 left-1/2 -translate-x-1/2 hidden px-6 py-3 rounded-xl text-sm font-bold shadow-2xl z-50"></div>
+  <!-- Toast Container -->
+  <div id="toast-container"
+    class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] flex flex-col items-center gap-2 pointer-events-none"></div>
 
-<script>
-  const USER_ID = "{{USER_ID}}";
+  <script>
+    const USER_ID = "{{USER_ID}}";
 
-  // ---------- helpers ----------
-  function toast(txt, err=false){
-    const el=document.getElementById("msg");
-    el.textContent=txt;
-    el.className="fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 rounded-xl text-sm font-bold shadow-2xl z-50 " + (err ? "bg-red-900/80 text-red-100 border border-red-700/50" : "bg-emerald-900/80 text-emerald-100 border border-emerald-700/50");
-    el.classList.remove("hidden");
-    setTimeout(()=>el.classList.add("hidden"), 2500);
-  }
+    /* ================= UI HELPERS ================= */
+    function toast(msg, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const el = document.createElement('div');
 
-  function toggleVisibility(id){
-    const el=document.getElementById(id);
-    el.type = (el.type==="password") ? "text" : "password";
-  }
+      const colors = type === 'error'
+        ? 'bg-rose-500/10 border-rose-500/20 text-rose-200'
+        : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-200';
 
-  // ---------- Cred Modal ----------
-  function openCred(){ document.getElementById("credModal").classList.remove("hidden"); }
-  function closeCred(){ document.getElementById("credModal").classList.add("hidden"); }
+      const icon = type === 'error' ? '⚠️' : '✅';
 
-  async function saveCred(){
-    const api_key = document.getElementById("api_key").value;
-    const api_secret = document.getElementById("api_secret").value;
-    const r = await fetch("/api/save-credentials",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({user_id:USER_ID, api_key, api_secret})
-    });
-    const d = await r.json();
-    if(d.error){ toast("❌ "+d.error,true); return; }
-    toast("✅ Credentials saved");
-    closeCred();
-  }
+      el.className = `glass px-4 py-3 rounded-xl border flex items-center gap-3 shadow-xl backdrop-blur-xl animate-enter ${colors}`;
+      el.innerHTML = `<span class="text-lg">${icon}</span><span class="text-sm font-medium">${msg}</span>`;
 
-  function connectZerodha(){
-    window.location = `/connect/zerodha?user_id=${USER_ID}`;
-  }
+      container.appendChild(el);
+      setTimeout(() => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(10px)';
+        setTimeout(() => el.remove(), 300);
+      }, 3000);
+    }
 
-  // ---------- Zerodha status ----------
-  async function refreshZ(){
-    try{
-      const z = await (await fetch(`/api/zerodha-status?user_id=${USER_ID}`)).json();
-      const b = document.getElementById("zbadge");
-      if(z.connected){
-        b.textContent="🟢 Zerodha CONNECTED";
-        b.style.borderColor="rgba(16,185,129,.35)";
-      }else{
-        b.textContent="🔴 Zerodha DISCONNECTED";
-        b.style.borderColor="rgba(239,68,68,.35)";
+    function toggleVisibility(id) {
+      const el = document.getElementById(id);
+      el.type = el.type === 'password' ? 'text' : 'password';
+    }
+
+    /* ================= LOGIC TOASTS & API ================= */
+    // ... (Retaining original logic, just mapping to new UI IDs) ...
+
+    function openCred() { document.getElementById("credModal").classList.remove("hidden"); }
+    function closeCred() { document.getElementById("credModal").classList.add("hidden"); }
+
+    function openCfg() {
+      document.getElementById("cfgModal").classList.remove("hidden");
+      loadCfgList();
+    }
+    function closeCfg() { document.getElementById("cfgModal").classList.add("hidden"); }
+
+    /* --- API Calls with new Toast --- */
+    async function saveCred() {
+      const api_key = document.getElementById("api_key").value;
+      const api_secret = document.getElementById("api_secret").value;
+      try {
+        const r = await fetch("/api/save-credentials", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: USER_ID, api_key, api_secret })
+        });
+        const d = await r.json();
+        if (d.error) throw d.error;
+        toast("Credentials saved successfully");
+        closeCred();
+      } catch (e) {
+        toast(e, 'error');
       }
-    }catch{
-      document.getElementById("zbadge").textContent="🔴 Zerodha DISCONNECTED";
-    }
-  }
-
-  // ---------- Config Modal ----------
-  function openCfg(){ document.getElementById("cfgModal").classList.remove("hidden"); loadCfgList(); }
-  function closeCfg(){ document.getElementById("cfgModal").classList.add("hidden"); }
-
-  async function saveCfg(){
-    const payload = {
-      user_id: USER_ID,
-      alert_name: document.getElementById("cfg_alert").value.trim(),
-      enabled: document.getElementById("cfg_enabled").value==="true",
-      direction: document.getElementById("cfg_dir").value,
-      product: document.getElementById("cfg_prod").value,
-      qty_mode: document.getElementById("cfg_qtymode").value,
-      capital: parseFloat(document.getElementById("cfg_cap").value||"0"),
-      qty: parseInt(document.getElementById("cfg_qty").value||"1"),
-      target_pct: parseFloat(document.getElementById("cfg_tgt").value||"1"),
-      stop_loss_pct: parseFloat(document.getElementById("cfg_sl").value||"1"),
-      trailing_sl_pct: parseFloat(document.getElementById("cfg_tsl").value||"1"),
-      trade_limit_per_day: parseInt(document.getElementById("cfg_limit").value||"1"),
-      sector_filter_on: document.getElementById("cfg_sector_on").value==="true",
-      top_n_sector: parseInt(document.getElementById("cfg_topn").value||"2"),
-    };
-    if(!payload.alert_name){ toast("❌ alert name required", true); return; }
-    const r = await fetch("/api/alert-config",{method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
-    const d = await r.json();
-    if(d.error){ toast("❌ "+d.error,true); return; }
-    toast("✅ Config saved");
-    loadCfgList();
-  }
-
-  async function loadCfgList(){
-    const d = await (await fetch(`/api/alert-config?user_id=${USER_ID}`)).json();
-    const box=document.getElementById("cfgList");
-    box.innerHTML="";
-    const cfgs=d.configs||{};
-    const keys=Object.keys(cfgs);
-    if(keys.length===0){ box.innerHTML='<div class="text-slate-500">No configs</div>'; return; }
-    keys.sort().forEach(k=>{
-      const c=cfgs[k];
-      box.innerHTML += `<div class="flex items-center justify-between bg-black/30 border border-cyan-900/20 rounded-xl px-3 py-2">
-        <div>
-          <div class="font-bold text-cyan-200">${k}</div>
-          <div class="text-xs text-slate-400">${c.direction} • ${c.product} • limit ${c.trade_limit_per_day} • sector ${c.sector_filter_on?"ON":"OFF"}</div>
-        </div>
-        <button class="btn btn-slate text-xs" onclick='fillCfg(${JSON.stringify(k)})'>Edit</button>
-      </div>`;
-    });
-  }
-
-  async function fillCfg(name){
-    const d = await (await fetch(`/api/alert-config?user_id=${USER_ID}`)).json();
-    const c = (d.configs||{})[name];
-    if(!c) return;
-    document.getElementById("cfg_alert").value = name;
-    document.getElementById("cfg_enabled").value = String(!!c.enabled);
-    document.getElementById("cfg_dir").value = c.direction||"LONG";
-    document.getElementById("cfg_prod").value = c.product||"MIS";
-    document.getElementById("cfg_qtymode").value = c.qty_mode||"CAPITAL";
-    document.getElementById("cfg_cap").value = c.capital||20000;
-    document.getElementById("cfg_qty").value = c.qty||1;
-    document.getElementById("cfg_tgt").value = c.target_pct||1;
-    document.getElementById("cfg_sl").value = c.stop_loss_pct||1;
-    document.getElementById("cfg_tsl").value = c.trailing_sl_pct||1;
-    document.getElementById("cfg_limit").value = c.trade_limit_per_day||3;
-    document.getElementById("cfg_sector_on").value = String(!!c.sector_filter_on);
-    document.getElementById("cfg_topn").value = c.top_n_sector||2;
-  }
-
-  // ---------- Alerts ----------
-  const ALERTS = []; // most-recent alerts (sorted desc by time)
-  const MAX_ALERT_ROWS = 100;
-  let alertRenderPending = false;
-
-  function _formatTime(ts){
-  try{
-    const n = Number(ts);
-    if(!Number.isFinite(n) || n <= 0) return "--";
-
-    const d = new Date(n); // expects millis
-    if(Number.isNaN(d.getTime())) return "--";
-
-    // Force IST display (not browser local)
-    return d.toLocaleTimeString("en-IN", {
-      timeZone: "Asia/Kolkata",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false
-    });
-  }catch{
-    return "--";
-  }
-}
-function _toMillis(x){
-  // Accept epoch seconds or millis, number or string
-  const n = Number(x);
-  if(!Number.isFinite(n) || n <= 0) return 0;
-  return (n < 1e12) ? Math.round(n * 1000) : Math.round(n);
-}
-
-function _alertTimeMillis(a){
-  // Prefer stable epoch fields if your backend provides them
-  // (add these in backend if possible)
-  if(a.ts_ms) return _toMillis(a.ts_ms);
-  if(a.ts)    return _toMillis(a.ts);
-  if(a.epoch) return _toMillis(a.epoch);
-
-  // Try ISO strings (stable)
-  if(a.time){
-    const p = Date.parse(a.time);
-    if(!Number.isNaN(p)) return p;
-  }
-  if(a.timestamp){
-    const p = Date.parse(a.timestamp);
-    if(!Number.isNaN(p)) return p;
-  }
-
-  // If nothing parseable, DON'T invent time
-  return 0;
-}
-
-
-  function renderAlerts(){
-    const tbody=document.getElementById("alertsBody");
-    const cEl = document.getElementById("alertCount");
-    if(cEl) cEl.textContent = `Alerts • ${ALERTS.length}`;
-
-    if(ALERTS.length===0){
-      tbody.innerHTML=`<tr><td colspan="8" class="p-10 text-center text-cyan-900/70 italic">Waiting for webhook…</td></tr>`;
-      return;
     }
 
-    // Build flattened rows: (alert x symbols) with cap
-    const rows = [];
-    let rowCount = 0;
-    for(const a of ALERTS){
-      const syms = Array.isArray(a.symbols) ? a.symbols : [];
-      for(const s of syms){
-        if(rowCount >= MAX_ALERT_ROWS) break;
-        const resultData = (a.result||[]).find(x=>x.symbol===s);
-        const status = resultData?.status||"";
-        const reason = resultData?.reason||"";
-        rows.push({alert: a.alert_name, time: a.time, symbol: s, status, reason});
-        rowCount++;
+    function connectZerodha() { location.href = `/connect/zerodha?user_id=${USER_ID}`; }
+
+    async function refreshZ() {
+      const el = document.getElementById("zbadge");
+      try {
+        const r = await (await fetch(`/api/zerodha-status?user_id=${USER_ID}`)).json();
+        if (r.connected) {
+          el.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)] inline-block mr-1.5"></span> KITE: CONNECTED`;
+          el.className = "px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.2)] transition-all";
+        } else {
+          throw new Error('Disconnected');
+        }
+      } catch {
+        el.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block mr-1.5 animate-pulse"></span> KITE: DISCONNECTED`;
+        el.className = "px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20 shadow-[0_0_10px_rgba(244,63,94,0.2)] transition-all";
       }
-      if(rowCount >= MAX_ALERT_ROWS) break;
     }
 
-    const fragment = document.createDocumentFragment();
-    for(const r of rows){
-      const tr = document.createElement("tr");
-      const statusColor =
-        r.status === "ENTERED" ? "text-green-400" :
-        r.status === "SKIPPED" ? "text-yellow-400" :
-        r.status === "REJECTED" ? "text-red-400" :
-        r.status === "ERROR" ? "text-red-400" :
-        "text-slate-400";
-
-      const reasonDisplay = r.reason ? ` (${String(r.reason).slice(0,120)})` : "";
-      tr.innerHTML = `
-        <td class="p-3 font-bold text-cyan-200">${r.alert}</td>
-        <td class="p-3 text-slate-300">${_formatTime(r.time)}</td>
-        <td class="p-3 font-bold mono">${r.symbol}</td>
-        <td class="p-3 text-center mono" id="altp-${r.symbol}">--</td>
-        <td class="p-3 text-center mono" id="apct-${r.symbol}">--</td>
-        <td class="p-3 text-center mono" id="atbq-${r.symbol}">--</td>
-        <td class="p-3 text-center mono" id="atsq-${r.symbol}">--</td>
-        <td class="p-3 text-center text-xs ${statusColor}" title="${(r.reason||"").toString().replace(/"/g,"'")}">${r.status}${reasonDisplay}</td>
-      `;
-      fragment.appendChild(tr);
+    async function killSwitch() {
+      if (!confirm("⚠️ EMERGENCY: STOP ALL TRADING?")) return;
+      await fetch("/api/kill-switch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: USER_ID, enabled: true }) });
+      toast("KILL SWITCH ACTIVATED", 'error');
     }
 
-    tbody.innerHTML = "";
-    tbody.appendChild(fragment);
-  }
+    /* --- Auto Square Off --- */
+    // Removed autoSqEnabled, renderAutoSqBtn, checkAutoSqOff, toggleAutoSqOff functions as per instruction.
 
-  function scheduleAlertRender(){
-    if(alertRenderPending) return;
-    alertRenderPending = true;
-    requestAnimationFrame(()=>{
-      renderAlerts();
-      alertRenderPending = false;
-    });
-  }
+    /* --- Config Logic --- */
+    async function loadCfgList() {
+      const d = await (await fetch(`/api/alert-config?user_id=${USER_ID}`)).json();
+      const list = document.getElementById("cfgList");
+      list.innerHTML = "";
+      const cfgs = d.configs || {};
 
-  async function loadAlerts(){
-  try{
-    const d = await (await fetch(`/api/alerts?user_id=${USER_ID}&limit=100`)).json();
-    const alerts = d.alerts || [];
-    ALERTS.splice(0, ALERTS.length);
-    for(const a of alerts){
-      const t = _alertTimeMillis(a); // ✅ stable, no Date.now() fallback
-      ALERTS.push({
-        alert_name: a.alert_name || a.alert || "UNKNOWN",
-        symbols: Array.isArray(a.symbols)
-          ? a.symbols
-          : String(a.symbols||"").split(",").map(x=>x.trim()).filter(Boolean),
-        result: a.result || [],
-        time: t // ✅ 0 if unknown
+      if (Object.keys(cfgs).length === 0) {
+        list.innerHTML = `<div class="text-xs text-slate-500 text-center py-4">No saved strategies found.</div>`;
+        return;
+      }
+
+      Object.keys(cfgs).sort().forEach(k => {
+        const c = cfgs[k];
+        const div = document.createElement("div");
+        div.className = "group relative flex items-center justify-between p-4 rounded-xl bg-gradient-to-br from-slate-900/80 to-slate-800/80 border border-white/5 hover:border-cyan-500/30 hover:shadow-lg hover:shadow-cyan-900/20 transition-all duration-300 cursor-pointer overflow-hidden";
+
+        // Active indicator strip
+        const activeStrip = c.enabled ? `<div class="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>` : `<div class="absolute left-0 top-0 bottom-0 w-1 bg-slate-700"></div>`;
+
+        div.onclick = () => fillCfg(k);
+        div.innerHTML = `
+          ${activeStrip}
+          <div class="pl-3">
+            <div class="flex items-center gap-2">
+               <div class="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors">${k}</div>
+               ${c.enabled ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">ACTIVE</span>' : '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-700/30 text-slate-500 border border-white/5">PAUSED</span>'}
+            </div>
+            <div class="text-[10px] text-slate-400 mt-1 font-mono flex flex-wrap gap-x-3 gap-y-1">
+              <span><span class="${c.direction === 'LONG' ? 'text-emerald-400' : 'text-rose-400'}">${c.direction}</span> • <span class="text-cyan-200">${c.product}</span></span>
+              <span>Target: <span class="text-white">${c.target_pct}%</span></span>
+              <span>SL: <span class="text-rose-300">${c.stop_loss_pct}%</span></span>
+              <span>TSL: <span class="text-blue-300">${c.trailing_sl_pct}%</span></span>
+              <span>Limit: <span class="text-yellow-200">${c.trade_limit_per_day}/day</span></span>
+            </div>
+          </div>
+        `;
+
+        // Wrapper for click handling separation
+        const wrapper = document.createElement("div");
+        wrapper.className = "flex items-center gap-2 w-full";
+
+        // Trash button
+        const delBtn = document.createElement("button");
+        delBtn.className = "p-1.5 rounded-md hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 transition-colors z-10";
+        delBtn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>`;
+        delBtn.onclick = (e) => {
+          e.stopPropagation(); // prevent filling form
+          deleteCfg(k);
+        };
+
+        div.appendChild(delBtn); // Append delete button
+
+        // Re-structure to have [Info Area (Clickable)] + [Delete Btn]
+        // But simply appending to div (relative) works if styled right. 
+        // Let's use flex in parent.
+        list.appendChild(div);
       });
     }
-    // Sort: unknown times (0) go last
-    ALERTS.sort((x,y)=> (y.time||0) - (x.time||0));
-    if(ALERTS.length > 200) ALERTS.length = 200;
-    scheduleAlertRender();
-    if(alerts.length > 0) toast(`✅ Loaded ${alerts.length} alerts`);
-  }catch(e){
-    console.error("Failed to load alerts:", e);
-    toast("❌ Failed to load alerts", true);
-  }
-}
 
-  // ---------- Positions ----------
-  async function refreshPositions(){
-    const d = await (await fetch(`/api/positions?user_id=${USER_ID}`)).json();
-    renderPositions(d.positions||[]);
-  }
+    async function fillCfg(name) {
+      const d = await (await fetch(`/api/alert-config?user_id=${USER_ID}`)).json();
+      const c = (d.configs || {})[name];
+      if (!c) return;
 
-  function renderPositions(rows){
-    const tbody=document.getElementById("posBody");
-    
-
-    if(!rows || rows.length===0){
-      tbody.innerHTML = `<tr><td colspan="10" class="p-10 text-center text-cyan-900/70 italic">No positions</td></tr>`;
-      return;
-    }
-    tbody.innerHTML="";
-    rows.forEach(p=>{
-      tbody.innerHTML += `<tr>
-        <td class="p-3 font-bold mono">${p.symbol}</td>
-        <td class="p-3 text-slate-300">${p.alert_name||"-"}</td>
-        <td class="p-3 text-center">${p.side}</td>
-        <td class="p-3 text-center">${p.product}</td>
-        <td class="p-3 text-center mono">${p.qty}</td>
-        <td class="p-3 text-center mono">${Number(p.entry_price||0).toFixed(2)}</td>
-        <td class="p-3 text-center mono" id="pltp-${p.symbol}">${Number(p.ltp||0).toFixed(2)}</td>
-        <td class="p-3 text-center mono" id="ppnl-${p.symbol}">${Number(p.pnl||0).toFixed(2)}</td>
-        <td class="p-3 text-center">${p.status}${p.exit_reason?` (${p.exit_reason})`:""}</td>
-        <td class="p-3 text-center">
-          <button class="btn btn-red text-xs" onclick="squareoff('${p.symbol}')">Squareoff</button>
-        </td>
-      </tr>`;
-    });
-  }
-
-  async function squareoff(sym){
-    const r = await fetch("/api/position/squareoff",{
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({user_id:USER_ID, symbol:sym})
-    });
-    const d = await r.json();
-    if(d.error){ toast("❌ "+d.error,true); return; }
-    toast("✅ Squareoff sent");
-    refreshPositions();
-  }
-
-  async function killSwitch(){
-    if(!confirm("Kill switch ON?")) return;
-    await fetch("/api/kill-switch",{method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({user_id:USER_ID, enabled:true})});
-    toast("🛑 Kill ON", true);
-  }
-
-  // ---------- WebSocket feed ----------
-  function wsUrl(){
-    const p = location.protocol==="https:" ? "wss" : "ws";
-    return `${p}://${location.host}/ws/feed?user_id=${USER_ID}`;
-  }
-
-  let WS=null;
-  let pingTimer=null;
-
-  let posRefreshPending=false;
-  let tickUpdateQueue={};
-  let tickUpdatePending=false;
-
-  function schedulePosRefresh(){
-    if(posRefreshPending) return;
-    posRefreshPending = true;
-    setTimeout(async ()=>{
-      await refreshPositions();
-      posRefreshPending = false;
-    }, 500);
-  }
-
-  function scheduleTickUpdates(){
-    if(tickUpdatePending) return;
-    tickUpdatePending = true;
-    requestAnimationFrame(()=>{
-      for(const [s, data] of Object.entries(tickUpdateQueue)){
-        const ltp=Number(data.ltp||0);
-        const pct=Number(data.pct||0);
-
-        const a1=document.getElementById(`altp-${s}`); if(a1) a1.textContent=ltp ? ltp.toFixed(2) : "--";
-        const a2=document.getElementById(`apct-${s}`); if(a2) a2.textContent=(ltp ? pct.toFixed(2)+"%" : "--");
-        const a3=document.getElementById(`atbq-${s}`); if(a3) a3.textContent=(data.tbq ?? "--");
-        const a4=document.getElementById(`atsq-${s}`); if(a4) a4.textContent=(data.tsq ?? "--");
-
-        const p1=document.getElementById(`pltp-${s}`); if(p1) p1.textContent=ltp ? ltp.toFixed(2) : "--";
+      // Populate fields
+      const sets = {
+        "cfg_alert": name, "cfg_enabled": String(!!c.enabled), "cfg_dir": c.direction,
+        "cfg_prod": c.product, "cfg_qtymode": c.qty_mode, "cfg_cap": c.capital,
+        "cfg_qty": c.qty, "cfg_tgt": c.target_pct, "cfg_sl": c.stop_loss_pct,
+        "cfg_tsl": c.trailing_sl_pct, "cfg_limit": c.trade_limit_per_day,
+        "cfg_sector_on": String(!!c.sector_filter_on), "cfg_topn": c.top_n_sector,
+        "cfg_entry_start": c.entry_start_time || "09:15",
+        "cfg_entry_end": c.entry_end_time || "15:15"
+      };
+      for (let k in sets) {
+        const el = document.getElementById(k);
+        if (el) el.value = sets[k];
       }
-      tickUpdateQueue = {};
-      tickUpdatePending = false;
-    });
-  }
-
-  function startWS(){
-    const b=document.getElementById("wsbadge");
-    try{
-      WS = new WebSocket(wsUrl());
-    }catch{
-      b.textContent="WS • ERROR";
-      setTimeout(startWS, 1500);
-      return;
     }
-    // 🔁 AJAX fallback if WebSocket is disconnected
-setInterval(()=>{
-  if(!WS || WS.readyState !== WebSocket.OPEN){
-    console.log("WS down → AJAX refresh");
-    loadAlerts();        // alerts reload
-    refreshPositions(); // positions reload
-  }
-}, 10000); // every 10 seconds
 
+    async function saveCfg() {
+      const payload = {
+        user_id: USER_ID,
+        alert_name: document.getElementById("cfg_alert").value.trim(),
+        enabled: document.getElementById("cfg_enabled").value === "true",
+        direction: document.getElementById("cfg_dir").value,
+        product: document.getElementById("cfg_prod").value,
+        qty_mode: document.getElementById("cfg_qtymode").value,
+        capital: parseFloat(document.getElementById("cfg_cap").value || 0),
+        qty: parseInt(document.getElementById("cfg_qty").value || 1),
+        target_pct: parseFloat(document.getElementById("cfg_tgt").value || 0),
+        stop_loss_pct: parseFloat(document.getElementById("cfg_sl").value || 0),
+        trailing_sl_pct: parseFloat(document.getElementById("cfg_tsl").value || 0),
+        trade_limit_per_day: parseInt(document.getElementById("cfg_limit").value || 0),
+        sector_filter_on: document.getElementById("cfg_sector_on").value === "true",
+        top_n_sector: parseInt(document.getElementById("cfg_topn").value || 0),
+        entry_start_time: document.getElementById("cfg_entry_start").value || "09:15",
+        entry_end_time: document.getElementById("cfg_entry_end").value || "15:15",
+      };
 
-    WS.onopen=()=>{
-      b.textContent="WS • LIVE";
-      if(pingTimer) clearInterval(pingTimer);
-      pingTimer = setInterval(()=>{ try{ WS.send("ping"); }catch{} }, 20000);
-    };
+      if (!payload.alert_name) { toast("Alert Name is required", 'error'); return; }
 
-    WS.onclose=()=>{
-      b.textContent="WS • RECONNECT";
-      if(pingTimer) { clearInterval(pingTimer); pingTimer=null; }
-      setTimeout(startWS, 1200);
-    };
-    WS.onerror=()=>{ try{WS.close()}catch{} };
-
-    WS.onmessage=(ev)=>{
-      let d; try{ d = JSON.parse(ev.data); }catch{ return; }
-
-      if(d.type==="alert"){
-        const syms = Array.isArray(d.symbols)
-          ? d.symbols
-          : String(d.symbols||"").split(",").map(x=>x.trim()).filter(Boolean);
-
-          const t = _alertTimeMillis(d); // ✅ stable if server sends
-
-        ALERTS.push({
-          alert_name: d.alert_name || d.alert || "UNKNOWN",
-          symbols: syms,
-          result: d.result || [],
-          time: t
+      try {
+        const r = await fetch("/api/alert-config", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
         });
+        const d = await r.json();
+        if (d.error) throw d.error;
+        toast(`Strategy '${payload.alert_name}' Saved`);
+        loadCfgList();
+        closeCfg(); // Auto close on save
+      } catch (e) { toast(e, 'error'); }
+    }
 
-        ALERTS.sort((a,b)=> (b.time||0)-(a.time||0));
-        if (ALERTS.length > 200) ALERTS.length = 200;
+    async function deleteCfg(name) {
+      if (!confirm(`Are you sure you want to DELETE strategy '${name}'?`)) return;
 
-        scheduleAlertRender();
-        schedulePosRefresh();
+      try {
+        const r = await fetch("/api/alert-config", {
+          method: "DELETE", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: USER_ID, alert_name: name })
+        });
+        const d = await r.json();
+        if (!d.deleted) throw "Delete failed";
+        toast(`Strategy '${name}' deleted`);
+        loadCfgList();
+
+        // Clear inputs if deleting currently viewed
+        if (document.getElementById("cfg_alert").value === name) {
+          document.getElementById("cfg_alert").value = "";
+        }
+      } catch (e) {
+        toast("Failed to delete strategy", 'error');
+      }
+    }
+
+    /* --- Rendering Logic --- */
+    const ALERTS = [];
+    let WS = null;
+    let POS_MAP = {}; // Global map: symbol -> position object
+
+    function renderAlerts() {
+      const tbody = document.getElementById("alertsBody");
+      document.getElementById("alertCount").innerText = `${ALERTS.length} Alerts`;
+
+      if (ALERTS.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="10" class="text-center py-12 text-slate-500 italic">Waiting for incoming signals...</td></tr>`;
         return;
       }
 
-      if(d.type==="tick"){
-        const s=String(d.symbol||"");
-        if(!s) return;
+      tbody.innerHTML = ALERTS.slice(0, 100).map(row => {
+        return (row.result || []).map(res => {
+          const timeStr = new Date(row.time).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false });
+          const statusClass =
+            res.status === 'ENTERED' ? 'text-emerald-400 bg-emerald-500/10' :
+              res.status === 'SKIPPED' ? 'text-yellow-400 bg-yellow-500/10' :
+                'text-rose-400 bg-rose-500/10';
 
-        const ltp=Number(d.ltp||0);
-        const close=Number(d.close||ltp);
-        const pct = close>0 ? ((ltp-close)/close*100) : 0;
+          // Look up active position data
+          const p = POS_MAP[res.symbol];
 
-        tickUpdateQueue[s] = {ltp, pct, tbq:d.tbq, tsq:d.tsq};
-        scheduleTickUpdates();
+          let entry = "--";
+          let tgt = "--";
+          let sl = "--";
+          let tslDisplay = "--";
+
+          if (p) {
+            entry = Number(p.entry_price).toFixed(2);
+            tgt = Number(p.target_price || 0).toFixed(2);
+            sl = Number(p.sl_price || 0).toFixed(2);
+
+            // Initial TSL calc
+            let tslPrice = 0.0;
+            const tslPct = Number(p.tsl_pct || 0);
+            if (tslPct > 0) {
+              if (p.side === 'BUY' && Number(p.highest || 0) > 0) {
+                tslPrice = Number(p.highest) * (1.0 - tslPct / 100.0);
+              } else if (p.side === 'SELL' && Number(p.lowest || 0) > 0) {
+                tslPrice = Number(p.lowest) * (1.0 + tslPct / 100.0);
+              }
+            }
+            if (tslPrice > 0) tslDisplay = tslPrice.toFixed(2);
+          }
+
+          return `
+             <tr class="group text-sm">
+               <td class="font-medium text-white">${row.alert_name}</td>
+               <td class="text-slate-400 font-mono text-xs">${timeStr}</td>
+               <td class="font-bold text-cyan-300 font-mono">${res.symbol}</td>
+               
+               <td class="text-right font-mono text-slate-300">${entry}</td>
+               <td class="text-right font-mono text-emerald-400/80">${tgt}</td>
+               <td class="text-right font-mono text-rose-400/80">${sl}</td>
+               <td class="text-right font-mono text-blue-300" id="atsl-${res.symbol}">${tslDisplay}</td>
+
+               <td class="text-right font-mono text-slate-300" id="altp-${res.symbol}">--</td>
+               <td class="text-right font-mono" id="apct-${res.symbol}">--</td>
+               
+               <td class="text-center">
+                 <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold tracking-wide ${statusClass}">
+                   ${res.status}
+                 </span>
+                 ${res.reason ? `<div class="text-[10px] text-slate-500 mt-0.5 max-w-[120px] truncate mx-auto" title="${res.reason}">${res.reason}</div>` : ''}
+               </td>
+             </tr>
+           `;
+        }).join('');
+      }).join('');
+    }
+
+    async function loadAlerts() {
+      try {
+        const d = await (await fetch(`/api/alerts?user_id=${USER_ID}&limit=50`)).json();
+        // Correct time parsing logic from original script
+        ALERTS.length = 0;
+        (d.alerts || []).forEach(a => {
+          // Basic mapping
+          let t = 0;
+          if (a.ts_ms) t = a.ts_ms;
+          else if (a.time) t = Date.parse(a.time);
+
+          if (!t || isNaN(t)) t = Date.now();
+
+          ALERTS.push({
+            alert_name: a.alert_name,
+            time: t,
+            result: a.result || [],
+            symbols: a.symbols
+          });
+        });
+        ALERTS.sort((a, b) => b.time - a.time);
+        renderAlerts();
+      } catch (e) { console.error(e); }
+    }
+
+    async function refreshPositions() {
+      const d = await (await fetch(`/api/positions?user_id=${USER_ID}`)).json();
+      const pos = d.positions || [];
+
+      // Update global map
+      POS_MAP = {};
+      pos.forEach(p => { POS_MAP[p.symbol] = p; });
+
+      renderPositions(pos);
+      renderAlerts(); // Reflect updates in alerts
+    }
+
+    function renderPositions(rows) {
+      const tbody = document.getElementById("posBody");
+      const countEl = document.getElementById("posCount");
+      const pnlEl = document.getElementById("totalPnlBadge");
+
+      let totalPnl = 0.0;
+      if (rows) {
+        rows.forEach(p => totalPnl += Number(p.pnl || 0));
+      }
+
+      if (countEl) countEl.textContent = `${rows ? rows.length : 0} Active`;
+
+      if (pnlEl) {
+        // Updated large PnL display
+        const val = totalPnl.toFixed(2);
+        const colorClass = totalPnl > 0 ? "text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.4)]" : totalPnl < 0 ? "text-rose-400 drop-shadow-[0_0_8px_rgba(251,113,133,0.4)]" : "text-slate-300";
+
+        pnlEl.className = `text-2xl font-bold font-mono tracking-tight px-4 py-1 rounded-xl border border-white/5 bg-black/20 backdrop-blur-sm shadow-inner transition-colors duration-300`;
+        pnlEl.innerHTML = `<span class="text-slate-500 text-xs font-sans uppercase tracking-widest font-bold mr-2 mb-1 inline-block align-middle">Net PnL</span><span class="${colorClass}">${val}</span>`;
+      }
+
+      if (!rows || rows.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="13" class="text-center py-12 text-slate-500 italic">No active positions currently.</td></tr>`;
         return;
       }
 
-      if(d.type==="pos" || d.type==="pos_refresh"){
-        schedulePosRefresh();
-        return;
+      tbody.innerHTML = rows.map(p => {
+        const pnlClass = p.pnl > 0 ? 'text-emerald-400' : p.pnl < 0 ? 'text-rose-400' : 'text-slate-400';
+        const sideClass = p.side === 'BUY' ? 'text-emerald-400 bg-emerald-500/10' : 'text-rose-400 bg-rose-500/10';
+
+        // Calculate dynamic TSL value
+        let tslPrice = 0.0;
+        const tslPct = Number(p.tsl_pct || 0);
+        if (tslPct > 0) {
+          if (p.side === 'BUY' && Number(p.highest || 0) > 0) {
+            tslPrice = Number(p.highest) * (1.0 - tslPct / 100.0);
+          } else if (p.side === 'SELL' && Number(p.lowest || 0) > 0) {
+            tslPrice = Number(p.lowest) * (1.0 + tslPct / 100.0);
+          }
+        }
+
+        // Fallback for display if 0 (e.g. no ticks yet)
+        const tslDisplay = tslPrice > 0 ? tslPrice.toFixed(2) : '-';
+
+        return `
+          <tr class="group text-sm">
+            <td class="font-bold text-white font-mono">${p.symbol}</td>
+            <td class="text-xs text-slate-400">${p.alert_name}</td>
+            <td class="text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${sideClass}">${p.side}</span></td>
+            <td class="text-center text-xs text-slate-300">${p.product}</td>
+            <td class="text-right font-mono text-slate-300">${p.qty}</td>
+            <td class="text-right font-mono text-slate-400">${Number(p.entry_price).toFixed(2)}</td>
+            <td class="text-right font-mono text-emerald-400/80">${Number(p.target_price || 0).toFixed(2)}</td>
+            <td class="text-right font-mono text-rose-400/80">${Number(p.sl_price || 0).toFixed(2)}</td>
+            <td class="text-right font-mono text-blue-300">${tslDisplay}</td>
+            <td class="text-right font-mono text-cyan-200" id="pltp-${p.symbol}">${Number(p.ltp || 0).toFixed(2)}</td>
+            <td class="text-right font-mono font-bold ${pnlClass}" id="ppnl-${p.symbol}">${Number(p.pnl || 0).toFixed(2)}</td>
+            <td class="text-center text-xs text-slate-400">
+              ${p.status}
+              ${p.exit_reason ? `<div class="text-[9px] opacity-70">${p.exit_reason}</div>` : ''}
+            </td>
+            <td class="text-center">
+              <button onclick="squareoff('${p.symbol}')" class="px-2 py-1 text-[10px] font-bold uppercase tracking-wide rounded bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 hover:text-rose-200 transition-colors">
+                Square Off
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function squareoff(sym) {
+      try {
+        const r = await fetch("/api/position/squareoff", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: USER_ID, symbol: sym })
+        });
+        const d = await r.json();
+        if (d.error) throw d.error;
+        toast(`Exit order sent for ${sym}`);
+        setTimeout(refreshPositions, 500);
+      } catch (e) { toast(e, 'error'); }
+    }
+
+    async function exitAllPositions() {
+      if (!confirm("⚠️ ARE YOU SURE? This will close ALL open positions immediately.")) return;
+      try {
+        const r = await fetch("/api/position/exit-all", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: USER_ID })
+        });
+        const d = await r.json();
+        toast(`Triggered exit for ${d.count} positions`);
+        setTimeout(refreshPositions, 1000);
+      } catch (e) { toast("Failed to exit all", 'error'); }
+    }
+
+    /* --- WebSocket --- */
+    function startWS() {
+      const el = document.getElementById("wsbadge");
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      WS = new WebSocket(`${proto}://${location.host}/ws/feed?user_id=${USER_ID}`);
+
+      WS.onopen = () => {
+        el.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.6)] inline-block mr-1.5"></span> WS: LIVE`;
+        el.className = "px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20 shadow-[0_0_10px_rgba(59,130,246,0.3)] transition-all";
+      };
+
+      WS.onclose = () => {
+        el.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block mr-1.5 animate-pulse"></span> FEED: DISCONNECTED`;
+        el.className = "px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20 shadow-[0_0_10px_rgba(244,63,94,0.2)] transition-all";
+        setTimeout(startWS, 2000);
+      };
+
+      WS.onmessage = (ev) => {
+        try {
+          const d = JSON.parse(ev.data);
+
+          if (d.type === 'tick') {
+            const s = d.symbol;
+            const sid = safeId(s); // Use safe ID for alerts
+            const ltp = Number(d.ltp || 0).toFixed(2);
+            const close = Number(d.close || 0);
+            const pctChange = close > 0 ? ((d.ltp - close) / close * 100).toFixed(2) : '0.00';
+            const pctStr = pctChange + '%';
+
+            // Update Alert Table - LTP & % Change
+            const aLtp = document.getElementById(`altp-${sid}`);
+            if (aLtp) {
+              aLtp.innerText = ltp;
+              const ltpColor = d.ltp > close ? 'text-emerald-400' : d.ltp < close ? 'text-rose-400' : 'text-slate-300';
+              aLtp.className = `text-right font-mono ${ltpColor}`;
+            }
+            const aPct = document.getElementById(`apct-${sid}`);
+            if (aPct) {
+              aPct.innerText = pctStr;
+              const pctColor = parseFloat(pctChange) > 0 ? 'text-emerald-400' : parseFloat(pctChange) < 0 ? 'text-rose-400' : 'text-slate-400';
+              aPct.className = `text-right font-mono ${pctColor}`;
+            }
+
+            // Update TSL in Alert Table dynamically from POS_MAP
+            const p = POS_MAP[s]; // Lookup from map by raw symbol
+            const aTsl = document.getElementById(`atsl-${sid}`);
+            if (p && aTsl) {
+              let tslPrice = 0.0;
+              const tslPct = Number(p.tsl_pct || 0);
+              // Update high/low locally for immediate TSL feedback
+              if (p.side === 'BUY') {
+                p.highest = Math.max(Number(p.highest || 0), Number(d.ltp));
+                if (tslPct > 0 && p.highest > 0) tslPrice = p.highest * (1.0 - tslPct / 100.0);
+              } else if (p.side === 'SELL') {
+                p.lowest = (Number(p.lowest) === 0 ? Number(d.ltp) : Math.min(Number(p.lowest), Number(d.ltp))); // simplified
+                if (tslPct > 0 && p.lowest > 0) tslPrice = p.lowest * (1.0 + tslPct / 100.0);
+              }
+              if (tslPrice > 0) aTsl.innerText = tslPrice.toFixed(2);
+            }
+
+            // Update Position Table
+            const pLtp = document.getElementById(`pltp-${s}`);
+            if (pLtp) pLtp.innerText = ltp;
+          }
+
+          if (d.type === 'alert') {
+            if (d.result) {
+              d.result.forEach(r => {
+                if (r.status === 'SKIPPED' || r.status === 'REJECTED') {
+                  toast(`${r.symbol}: ${r.status} (${r.reason})`, 'error');
+                }
+              });
+            }
+            loadAlerts();
+          }
+
+          if (d.type === 'pos' || d.type === 'pos_refresh') {
+            if (d.type === 'pos' && d.position) {
+              POS_MAP[d.position.symbol] = d.position;
+              renderPositions(Object.values(POS_MAP));
+              renderAlerts();
+            } else {
+              refreshPositions();
+            }
+          }
+
+        } catch (e) { }
+      };
+    }
+
+    // Init
+    document.addEventListener("DOMContentLoaded", () => {
+      createStars();
+      refreshZ();
+      // checkAutoSqOff(); // Removed as we switched to manual button
+      setInterval(refreshZ, 5000);
+      loadAlerts();
+      refreshPositions();
+      startWS();
+    });
+
+    function createStars() {
+      const container = document.getElementById("stars");
+      if (!container) return;
+      const count = 60; // Number of stars
+      for (let i = 0; i < count; i++) {
+        const star = document.createElement("div");
+        star.className = "star";
+        const xy = [Math.random() * 100, Math.random() * 100];
+        const duration = 2 + Math.random() * 3; // 2-5s
+        const delay = Math.random() * 5;
+        const size = 1 + Math.random() * 2; // 1-3px
+        const opacity = 0.3 + Math.random() * 0.7;
+
+        star.style.left = `${xy[0]}%`;
+        star.style.top = `${xy[1]}%`;
+        star.style.width = `${size}px`;
+        star.style.height = `${size}px`;
+        star.style.setProperty("--duration", `${duration}s`);
+        star.style.setProperty("--delay", `${delay}s`);
+        star.style.setProperty("--opacity", opacity);
+
+        container.appendChild(star);
       }
-    };
-  }
+    }
 
-  // INIT
-  document.addEventListener("DOMContentLoaded", async ()=>{
-    await refreshZ();
-    setInterval(refreshZ, 5000);
-    await loadAlerts();
-    await refreshPositions();
-    startWS();
-  });
-</script>
-
+  </script>
 </body>
+
 </html>

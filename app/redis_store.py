@@ -120,8 +120,8 @@ def k_lock(user_id: int, symbol: str, action: str) -> str:
     return f"lock:{int(user_id)}:{norm_symbol(symbol)}:{(action or '').strip().lower()}"
 
 
-def k_trade_count(user_id: int, ymd: str, alert_name: str, symbol: str) -> str:
-    return f"trade:count:{int(user_id)}:{ymd}:{norm_alert_name(alert_name)}:{norm_symbol(symbol)}"
+def k_trade_count_alert(user_id: int, ymd: str, alert_name: str) -> str:
+    return f"trade:count:{int(user_id)}:{ymd}:{norm_alert_name(alert_name)}"
 
 
 def k_symbol_token(symbol: str) -> str:
@@ -130,6 +130,14 @@ def k_symbol_token(symbol: str) -> str:
 
 def k_alerts(user_id: int) -> str:
     return f"alerts:{int(user_id)}"
+
+
+def k_auto_sq_off_config(user_id: int) -> str:
+    return f"config:auto_sq_off:{int(user_id)}"
+
+
+def k_auto_sq_off_ran(user_id: int, ymd: str) -> str:
+    return f"status:auto_sq_off_ran:{int(user_id)}:{ymd}"
 
 
 # =========================
@@ -241,9 +249,9 @@ class RedisStore:
         except Exception:
             pass
 
-    async def allow_trade(self, user_id: int, alert_name: str, symbol: str, limit: int) -> bool:
+    async def allow_trade(self, user_id: int, alert_name: str, limit: int) -> bool:
         """
-        Per user + per day + per alert + per symbol trade limit.
+        Per user + per day + per alert trade limit (GLOBAL for that alert).
         limit <= 0 => allow always.
         """
         await self.init_scripts()
@@ -253,7 +261,7 @@ class RedisStore:
             await self.redis.evalsha(
                 self._sha_limit,  # type: ignore[arg-type]
                 1,
-                k_trade_count(user_id, ymd, alert_name, symbol),
+                k_trade_count_alert(user_id, ymd, alert_name),
                 str(int(limit)),
                 str(int(ttl)),
             )
@@ -369,6 +377,22 @@ class RedisStore:
     # =========================
     # Positions snapshot (hash)
     # =========================
+    async def save_alert_config(self, user_id: int, cfg: Dict[str, Any]) -> None:
+        key = normalize_alert_name(cfg.get("alert_name", ""))
+        if not key:
+            return
+        # ensure enabled is bool
+        cfg["enabled"] = bool(cfg.get("enabled", True))
+        data = json.dumps(cfg)
+        await self.redis.hset(k_alert_cfg(user_id), key, data)
+
+    async def delete_alert_config(self, user_id: int, alert_name: str) -> bool:
+        key = normalize_alert_name(alert_name)
+        if not key:
+            return False
+        count = await self.redis.hdel(k_alert_cfg(user_id), key)
+        return count > 0
+
     async def upsert_position(self, user_id: int, symbol: str, pos: Dict[str, Any]) -> None:
         sym = norm_symbol(symbol)
         payload = dict(pos or {})
@@ -445,3 +469,28 @@ class RedisStore:
             except Exception:
                 continue
         return out
+
+    # =========================
+    # Auto Square Off
+    # =========================
+    async def is_auto_sq_off_enabled(self, user_id: int) -> bool:
+        val = await self.redis.get(k_auto_sq_off_config(user_id))
+        return val == "1"
+
+    async def set_auto_sq_off_enabled(self, user_id: int, enabled: bool) -> None:
+        key = k_auto_sq_off_config(user_id)
+        if enabled:
+            await self.redis.set(key, "1")
+        else:
+            await self.redis.delete(key)
+
+    async def has_auto_sq_off_run(self, user_id: int) -> bool:
+        ymd = now_ist_date()
+        return bool(await self.redis.exists(k_auto_sq_off_ran(user_id, ymd)))
+
+    async def mark_auto_sq_off_run(self, user_id: int) -> None:
+        ymd = now_ist_date()
+        key = k_auto_sq_off_ran(user_id, ymd)
+        ttl = seconds_until_next_ist_day(extra_grace_sec=3600)
+        await self.redis.setex(key, int(ttl), "1")
+
