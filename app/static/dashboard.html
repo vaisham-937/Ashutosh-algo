@@ -389,14 +389,25 @@
             </div>
           </div>
         </div>
-        <button onclick="loadAlerts()" class="btn btn-secondary text-xs">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
-            </path>
-          </svg>
-          Refresh Log
-        </button>
+        <div class="flex gap-2">
+          <button onclick="loadAlerts()" class="btn btn-secondary text-xs">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+              </path>
+            </svg>
+            Refresh
+          </button>
+          <button onclick="clearAllAlerts()"
+            class="btn px-3 py-1.5 text-xs bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+              </path>
+            </svg>
+            Clear All
+          </button>
+        </div>
       </div>
 
       <div class="glass table-container">
@@ -407,12 +418,10 @@
                 <th>Alert Name</th>
                 <th>Time (IST)</th>
                 <th>Symbol</th>
-                <th class="text-right">Entry</th>
-                <th class="text-right">Target</th>
-                <th class="text-right">StopLoss</th>
-                <th class="text-right">TSL</th>
                 <th class="text-right">LTP</th>
                 <th class="text-right">% Change</th>
+                <th class="text-right">Buy Vol</th>
+                <th class="text-right">Sell Vol</th>
                 <th class="text-center">Status</th>
               </tr>
             </thead>
@@ -717,6 +726,13 @@
                 </div>
               </div>
             </div>
+            <!-- Dynamic Top Sectors Display -->
+            <div id="topSecContainer" class="col-span-2 mt-2 hidden">
+              <label class="block text-xs font-semibold text-emerald-400 uppercase mb-1.5">Current Top Sectors</label>
+              <div id="topSecList" class="flex flex-wrap gap-2 text-xs">
+                <!-- Injected by JS -->
+              </div>
+            </div>
           </div>
         </div>
 
@@ -775,10 +791,41 @@
     function openCred() { document.getElementById("credModal").classList.remove("hidden"); }
     function closeCred() { document.getElementById("credModal").classList.add("hidden"); }
 
+    /* --- Config Modal --- */
     function openCfg() {
       document.getElementById("cfgModal").classList.remove("hidden");
+      // Auto-fetch top sectors to show user what's currently hot
+      fetchTopSectors();
       loadCfgList();
     }
+
+    async function fetchTopSectors() {
+      try {
+        const limit = document.getElementById("cfg_topn").value || 3;
+        const r = await fetch(`/api/sectors/top?user_id=${USER_ID}&limit=${limit}`);
+        const d = await r.json();
+
+        const cont = document.getElementById("topSecContainer");
+        const list = document.getElementById("topSecList");
+
+        if (d.sectors && d.sectors.length > 0) {
+          cont.classList.remove("hidden");
+          list.innerHTML = d.sectors.map((s, i) => `
+                    <div class="px-2 py-1 rounded bg-slate-800 border border-slate-700 flex items-center gap-2">
+                        <span class="font-bold text-slate-400">#${i + 1}</span>
+                        <span class="font-mono text-cyan-300">${s.name}</span>
+                        <span class="${s.pct >= 0 ? 'text-emerald-400' : 'text-rose-400'} font-bold">${s.pct > 0 ? '+' : ''}${s.pct.toFixed(2)}%</span>
+                    </div>
+                `).join('');
+        } else {
+          cont.classList.add("hidden");
+        }
+      } catch (e) { console.error("Failed to fetch top sectors", e); }
+    }
+
+    document.getElementById("cfg_topn").addEventListener("change", fetchTopSectors);
+    document.getElementById("cfg_topn").addEventListener("keyup", fetchTopSectors);
+
     function closeCfg() { document.getElementById("cfgModal").classList.add("hidden"); }
 
     /* --- API Calls with new Toast --- */
@@ -860,6 +907,7 @@
               <span>SL: <span class="text-rose-300">${c.stop_loss_pct}%</span></span>
               <span>TSL: <span class="text-blue-300">${c.trailing_sl_pct}%</span></span>
               <span>Limit: <span class="text-yellow-200">${c.trade_limit_per_day}/day</span></span>
+              ${c.sector_filter_on ? `<span>Sector: <span class="text-fuchsia-300">Top ${c.top_n_sector}</span></span>` : ''}
             </div>
           </div>
         `;
@@ -968,6 +1016,11 @@
     let WS = null;
     let POS_MAP = {}; // Global map: symbol -> position object
 
+    // Helper: sanitize symbol for use as HTML ID
+    function safeId(symbol) {
+      return (symbol || '').replace(/[^a-zA-Z0-9]/g, '_');
+    }
+
     function renderAlerts() {
       const tbody = document.getElementById("alertsBody");
       document.getElementById("alertCount").innerText = `${ALERTS.length} Alerts`;
@@ -979,51 +1032,51 @@
 
       tbody.innerHTML = ALERTS.slice(0, 100).map(row => {
         return (row.result || []).map(res => {
-          const timeStr = new Date(row.time).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false });
+          const timeStr = new Date(row.time).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
           const statusClass =
             res.status === 'ENTERED' ? 'text-emerald-400 bg-emerald-500/10' :
               res.status === 'SKIPPED' ? 'text-yellow-400 bg-yellow-500/10' :
                 'text-rose-400 bg-rose-500/10';
 
           // Look up active position data
+          // Look up active position data for fallback LTP
           const p = POS_MAP[res.symbol];
 
-          let entry = "--";
-          let tgt = "--";
-          let sl = "--";
-          let tslDisplay = "--";
+          let initialLtp = "--";
+          let initialPct = "--";
+          let initialLtpClass = "text-slate-300";
+          let initialPctClass = "text-slate-400";
 
           if (p) {
-            entry = Number(p.entry_price).toFixed(2);
-            tgt = Number(p.target_price || 0).toFixed(2);
-            sl = Number(p.sl_price || 0).toFixed(2);
-
-            // Initial TSL calc
-            let tslPrice = 0.0;
-            const tslPct = Number(p.tsl_pct || 0);
-            if (tslPct > 0) {
-              if (p.side === 'BUY' && Number(p.highest || 0) > 0) {
-                tslPrice = Number(p.highest) * (1.0 - tslPct / 100.0);
-              } else if (p.side === 'SELL' && Number(p.lowest || 0) > 0) {
-                tslPrice = Number(p.lowest) * (1.0 + tslPct / 100.0);
+            const l = Number(p.ltp || 0);
+            if (l > 0) {
+              initialLtp = l.toFixed(2);
+              // If we had close price in Position we could calc pct, but LTP is better than nothing
+              // Try to infer color from entry price if close is missing?
+              const ent = Number(p.entry_price || 0);
+              if (ent > 0) {
+                const pct = (l - ent) / ent * 100;
+                // initialPct = pct.toFixed(2) + "%"; // accurate relative to ENTRY, not close
+                // For now just show LTP
+                if (l > ent) initialLtpClass = "text-emerald-400";
+                if (l < ent) initialLtpClass = "text-rose-400";
               }
             }
-            if (tslPrice > 0) tslDisplay = tslPrice.toFixed(2);
           }
+
+          const sid = safeId(res.symbol);
 
           return `
              <tr class="group text-sm">
                <td class="font-medium text-white">${row.alert_name}</td>
                <td class="text-slate-400 font-mono text-xs">${timeStr}</td>
-               <td class="font-bold text-cyan-300 font-mono">${res.symbol}</td>
+               <td class="font-bold text-cyan-300 font-mono text-left">${res.symbol}</td>
                
-               <td class="text-right font-mono text-slate-300">${entry}</td>
-               <td class="text-right font-mono text-emerald-400/80">${tgt}</td>
-               <td class="text-right font-mono text-rose-400/80">${sl}</td>
-               <td class="text-right font-mono text-blue-300" id="atsl-${res.symbol}">${tslDisplay}</td>
-
-               <td class="text-right font-mono text-slate-300" id="altp-${res.symbol}">--</td>
-               <td class="text-right font-mono" id="apct-${res.symbol}">--</td>
+               <td class="text-right font-mono ${initialLtpClass}" data-symbol="${res.symbol}" data-field="ltp">${initialLtp}</td>
+               <td class="text-right font-mono ${initialPctClass}" data-symbol="${res.symbol}" data-field="pct">${initialPct}</td>
+               
+               <td class="text-right font-mono text-slate-400" data-symbol="${res.symbol}" data-field="buyvol">-</td>
+               <td class="text-right font-mono text-slate-400" data-symbol="${res.symbol}" data-field="sellvol">-</td>
                
                <td class="text-center">
                  <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold tracking-wide ${statusClass}">
@@ -1043,10 +1096,13 @@
         // Correct time parsing logic from original script
         ALERTS.length = 0;
         (d.alerts || []).forEach(a => {
-          // Basic mapping
+          // Enhanced time parsing
           let t = 0;
-          if (a.ts_ms) t = a.ts_ms;
-          else if (a.time) t = Date.parse(a.time);
+          if (a.ts_ms) {
+            t = Number(a.ts_ms);
+          } else if (a.time) {
+            t = Date.parse(a.time); // Should handle ISO 8601 with 'T' correctly
+          }
 
           if (!t || isNaN(t)) t = Date.now();
 
@@ -1066,11 +1122,17 @@
       const d = await (await fetch(`/api/positions?user_id=${USER_ID}`)).json();
       const pos = d.positions || [];
 
-      // Update global map
+      // Filter to show only OPEN positions in Active Positions table
+      const activePos = pos.filter(p => p.status === 'OPEN');
+
+      // Sort alphabetically by symbol
+      activePos.sort((a, b) => a.symbol.localeCompare(b.symbol));
+
+      // Update global map with ALL positions (for tick updates)
       POS_MAP = {};
       pos.forEach(p => { POS_MAP[p.symbol] = p; });
 
-      renderPositions(pos);
+      renderPositions(activePos); // Only render OPEN positions
       renderAlerts(); // Reflect updates in alerts
     }
 
@@ -1120,7 +1182,12 @@
 
         return `
           <tr class="group text-sm">
-            <td class="font-bold text-white font-mono">${p.symbol}</td>
+            <td class="font-mono">
+              <div class="flex items-center">
+                ${p.sector ? `<span class="px-2 py-0.5 mr-2 text-[11px] font-bold rounded bg-sky-200 text-blue-900 border border-sky-300 shadow-sm whitespace-nowrap tracking-wide">${p.sector}</span>` : ''}
+                <span class="font-bold text-white text-sm">${p.symbol}</span>
+              </div>
+            </td>
             <td class="text-xs text-slate-400">${p.alert_name}</td>
             <td class="text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${sideClass}">${p.side}</span></td>
             <td class="text-center text-xs text-slate-300">${p.product}</td>
@@ -1171,6 +1238,19 @@
       } catch (e) { toast("Failed to exit all", 'error'); }
     }
 
+    async function clearAllAlerts() {
+      if (!confirm("⚠️ Delete ALL alert history? This cannot be undone.")) return;
+      try {
+        const r = await fetch(`/api/alerts?user_id=${USER_ID}`, {
+          method: "DELETE"
+        });
+        const d = await r.json();
+        if (d.error) throw d.error;
+        toast("All alerts cleared successfully");
+        loadAlerts(); // Refresh to show empty table
+      } catch (e) { toast(e, 'error'); }
+    }
+
     /* --- WebSocket --- */
     function startWS() {
       const el = document.getElementById("wsbadge");
@@ -1200,24 +1280,31 @@
             const pctChange = close > 0 ? ((d.ltp - close) / close * 100).toFixed(2) : '0.00';
             const pctStr = pctChange + '%';
 
-            // Update Alert Table - LTP & % Change
-            const aLtp = document.getElementById(`altp-${sid}`);
-            if (aLtp) {
-              aLtp.innerText = ltp;
+            // Update Alert Table - LTP & % Change using data attributes (Robust)
+            document.querySelectorAll(`[data-symbol="${s}"][data-field="ltp"]`).forEach(el => {
+              el.innerText = ltp;
               const ltpColor = d.ltp > close ? 'text-emerald-400' : d.ltp < close ? 'text-rose-400' : 'text-slate-300';
-              aLtp.className = `text-right font-mono ${ltpColor}`;
-            }
-            const aPct = document.getElementById(`apct-${sid}`);
-            if (aPct) {
-              aPct.innerText = pctStr;
+              // Preserve base classes + update color
+              el.className = `text-right font-mono ${ltpColor}`;
+            });
+
+            document.querySelectorAll(`[data-symbol="${s}"][data-field="pct"]`).forEach(el => {
+              el.innerText = pctStr;
               const pctColor = parseFloat(pctChange) > 0 ? 'text-emerald-400' : parseFloat(pctChange) < 0 ? 'text-rose-400' : 'text-slate-400';
-              aPct.className = `text-right font-mono ${pctColor}`;
-            }
+              el.className = `text-right font-mono ${pctColor}`;
+            });
+
+            // Update Volume (Buy/Sell)
+            const tbq = Number(d.tbq || 0);
+            const tsq = Number(d.tsq || 0);
+            const fmtVol = (n) => n.toLocaleString('en-IN');
+
+            document.querySelectorAll(`[data-symbol="${s}"][data-field="buyvol"]`).forEach(el => el.innerText = fmtVol(tbq));
+            document.querySelectorAll(`[data-symbol="${s}"][data-field="sellvol"]`).forEach(el => el.innerText = fmtVol(tsq));
 
             // Update TSL in Alert Table dynamically from POS_MAP
             const p = POS_MAP[s]; // Lookup from map by raw symbol
-            const aTsl = document.getElementById(`atsl-${sid}`);
-            if (p && aTsl) {
+            if (p) {
               let tslPrice = 0.0;
               const tslPct = Number(p.tsl_pct || 0);
               // Update high/low locally for immediate TSL feedback
@@ -1225,10 +1312,14 @@
                 p.highest = Math.max(Number(p.highest || 0), Number(d.ltp));
                 if (tslPct > 0 && p.highest > 0) tslPrice = p.highest * (1.0 - tslPct / 100.0);
               } else if (p.side === 'SELL') {
-                p.lowest = (Number(p.lowest) === 0 ? Number(d.ltp) : Math.min(Number(p.lowest), Number(d.ltp))); // simplified
+                p.lowest = (Number(p.lowest) === 0 ? Number(d.ltp) : Math.min(Number(p.lowest), Number(d.ltp)));
                 if (tslPct > 0 && p.lowest > 0) tslPrice = p.lowest * (1.0 + tslPct / 100.0);
               }
-              if (tslPrice > 0) aTsl.innerText = tslPrice.toFixed(2);
+
+              if (tslPrice > 0) {
+                const tslVal = tslPrice.toFixed(2);
+                document.querySelectorAll(`.atsl-${sid}`).forEach(el => el.innerText = tslVal);
+              }
             }
 
             // Update Position Table
@@ -1237,20 +1328,26 @@
           }
 
           if (d.type === 'alert') {
-            if (d.result) {
-              d.result.forEach(r => {
-                if (r.status === 'SKIPPED' || r.status === 'REJECTED') {
-                  toast(`${r.symbol}: ${r.status} (${r.reason})`, 'error');
-                }
-              });
-            }
+            // Toast logic removed as per user request (only show in table)
             loadAlerts();
           }
 
           if (d.type === 'pos' || d.type === 'pos_refresh') {
             if (d.type === 'pos' && d.position) {
-              POS_MAP[d.position.symbol] = d.position;
-              renderPositions(Object.values(POS_MAP));
+              // Update or remove from map based on status
+              if (d.position.status === 'OPEN') {
+                POS_MAP[d.position.symbol] = d.position;
+              } else {
+                // Remove closed/error positions from map
+                delete POS_MAP[d.position.symbol];
+              }
+
+              // Render only OPEN positions
+              const activePos = Object.values(POS_MAP).filter(p => p.status === 'OPEN');
+              // Sort alphabetically by symbol
+              activePos.sort((a, b) => a.symbol.localeCompare(b.symbol));
+
+              renderPositions(activePos);
               renderAlerts();
             } else {
               refreshPositions();

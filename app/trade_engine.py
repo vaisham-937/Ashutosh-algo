@@ -70,6 +70,11 @@ def _bg_blue(s: str) -> str:
 def _bg_yellow(s: str) -> str:
     return _c("1;30;43", s)
 
+
+def _bg_magenta(s: str) -> str:
+    return _c("1;37;45", s)
+
+
 def _fmt_side(side: str) -> str:
     return _green(side) if side == "BUY" else _red(side)
 
@@ -264,6 +269,7 @@ class Position:
 
     ltp: float = 0.0
     pnl: float = 0.0
+    sector: str = ""  # Sector/index group the stock belongs to
 
     def to_public(self) -> Dict[str, Any]:
         return asdict(self)
@@ -349,6 +355,10 @@ class TradeEngine:
 
         # tick visibility (first tick log)
         self._first_tick_logged: Dict[str, bool] = {}
+        
+        # Sector ranking periodic log
+        self._last_sector_rank_log: float = 0.0
+        self.sector_rank_log_interval_sec: float = 30.0  # Log every 30 seconds
 
     # ---------------- broker setup ----------------
     async def configure_kite(self) -> None:
@@ -398,10 +408,18 @@ class TradeEngine:
             self.sym_pct[symbol] = pct
             self.sector_sum[sec] = self.sector_sum.get(sec, 0.0) + pct
             self.sector_cnt[sec] = self.sector_cnt.get(sec, 0) + 1
+            log.debug(
+                "📊 SECTOR_TRACK_NEW | %s (%s) = %+.2f%% | Sector avg now: %+.2f%%",
+                symbol, sec, pct, self.sector_sum[sec] / self.sector_cnt[sec]
+            )
             return
 
         self.sym_pct[symbol] = pct
         self.sector_sum[sec] = self.sector_sum.get(sec, 0.0) + (pct - old)
+        log.debug(
+            "📊 SECTOR_UPDATE | %s (%s) = %+.2f%% (was %+.2f%%) | Sector avg: %+.2f%%",
+            symbol, sec, pct, old, self.sector_sum[sec] / self.sector_cnt[sec]
+        )
 
     def get_sector_rank(self) -> List[Tuple[str, float]]:
         out: List[Tuple[str, float]] = []
@@ -416,21 +434,86 @@ class TradeEngine:
         if not cfg.sector_filter_on:
             return True
 
+        # Debug: Show available sectors for this symbol
         sec = self.sym_sector.get(symbol)
+        
         if not sec:
-            return True
+            # Try to help debug - show similar symbols
+            available_symbols = [s for s in self.sym_sector.keys() if symbol.upper() in s.upper() or s.upper() in symbol.upper()]
+            log.warning(
+                "❌ SECTOR_UNKNOWN | symbol='%s' (not in STOCK_INDEX_MAPPING with %d stocks, REJECTING) | Similar: %s",
+                symbol, len(self.sym_sector), available_symbols[:3] if available_symbols else "none"
+            )
+            return False  # STRICT: Reject unknown stocks when filter is ON
 
         ranked = self.get_sector_rank()
         if not ranked:
+            log.info("ℹ️ SECTOR_NO_DATA | No sector data available yet, allowing all")
             return True
 
         topn = max(1, int(cfg.top_n_sector))
         top_gainers = {s for s, _ in ranked[:topn]}
         top_losers = {s for s, _ in ranked[-topn:]}
 
+        # Log current sector rankings
+        log.info(
+            "\n" + "="*80 + "\n" +
+            "📊 SECTOR RANKINGS (Top %d for %s)\n" % (topn, cfg.direction) +
+            "="*80
+        )
+        
         if cfg.direction == "LONG":
-            return sec in top_gainers
-        return sec in top_losers
+            log.info("🔝 TOP %d GAINERS (ALLOWED for LONG):", topn)
+            for i, (s, pct) in enumerate(ranked[:topn], 1):
+                log.info("   %d. %s: %+.2f%%", i, s, pct)
+            
+            log.info("\n📉 BOTTOM SECTORS (REJECTED for LONG):")
+            for i, (s, pct) in enumerate(ranked[topn:], topn+1):
+                log.info("   %d. %s: %+.2f%%", i, s, pct)
+        else:  # SHORT
+            log.info("📉 BOTTOM %d LOSERS (ALLOWED for SHORT):", topn)
+            for i, (s, pct) in enumerate(reversed(ranked[-topn:]), 1):
+                log.info("   %d. %s: %+.2f%%", i, s, pct)
+            
+            log.info("\n🔝 TOP SECTORS (REJECTED for SHORT):")
+            for i, (s, pct) in enumerate(reversed(ranked[:-topn]), 1):
+                log.info("   %d. %s: %+.2f%%", i, s, pct)
+        
+        log.info("="*80)
+
+        # Check if symbol's sector is in allowed list
+        if cfg.direction == "LONG":
+            allowed = sec in top_gainers
+            sector_pct = next((pct for s, pct in ranked if s == sec), 0.0)
+            
+            if allowed:
+                log.info(
+                    "✅ SECTOR_PASS | symbol=%s sector=%s (%+.2f%%) | Rank in TOP %d gainers",
+                    symbol, sec, sector_pct, topn
+                )
+            else:
+                rank = next((i+1 for i, (s, _) in enumerate(ranked) if s == sec), 0)
+                log.info(
+                    "❌ SECTOR_REJECT | symbol=%s sector=%s (%+.2f%%) | Rank #%d (not in TOP %d)",
+                    symbol, sec, sector_pct, rank, topn
+                )
+            return allowed
+        else:  # SHORT
+            allowed = sec in top_losers
+            sector_pct = next((pct for s, pct in ranked if s == sec), 0.0)
+            
+            if allowed:
+                log.info(
+                    "✅ SECTOR_PASS | symbol=%s sector=%s (%+.2f%%) | Rank in BOTTOM %d losers",
+                    symbol, sec, sector_pct, topn
+                )
+            else:
+                rank = next((i+1 for i, (s, _) in enumerate(ranked) if s == sec), 0)
+                log.info(
+                    "❌ SECTOR_REJECT | symbol=%s sector=%s (%+.2f%%) | Rank #%d (not in BOTTOM %d)",
+                    symbol, sec, sector_pct, rank, topn
+                )
+            return allowed
 
     # ---------------- qty helpers ----------------
     def _calc_qty(self, cfg: AlertConfig, ltp: float) -> int:
@@ -822,6 +905,8 @@ class TradeEngine:
             pos.cfg_target_pct=float(cfg.target_pct)
             pos.cfg_sl_pct=float(cfg.stop_loss_pct)
             pos.cfg_tsl_pct = float(cfg.trailing_sl_pct)
+            pos.sector = self.sym_sector.get(symbol, "")  # Add sector info
+
 
             # MIS monitoring setup
             if product == "MIS" and ltp > 0:
@@ -926,6 +1011,49 @@ class TradeEngine:
         if close and close > 0:
             pct = ((ltp - close) / close) * 100.0
             self._update_sector_perf(symbol, float(pct))
+            
+            # Periodic sector ranking summary
+            now = time.time()
+            if now - self._last_sector_rank_log >= self.sector_rank_log_interval_sec:
+                self._last_sector_rank_log = now
+                ranked = self.get_sector_rank()
+                if ranked:
+                    # Explicit Top 1 Gainer / Loser
+                    top_gainer_name, top_gainer_pct = ranked[0]
+                    top_loser_name, top_loser_pct = ranked[-1]
+
+                    log.info("\n" + "="*80)
+                    log.info("📊 SECTOR PERFORMANCE SUMMARY (Updated: %s)", 
+                             datetime.now().strftime("%H:%M:%S"))
+                    
+                    # 1. Always show Top Gainer (or Best Performer)
+                    if top_gainer_pct > 0:
+                        log.info("👑 TOP GAINER: %s (+%.2f%%)", _green(_bold(top_gainer_name)), top_gainer_pct)
+                    else:
+                        # If best is negative, it's still the "Best" relative
+                        log.info("👑 TOP GAINER: %s (%.2f%%)", top_gainer_name, top_gainer_pct)
+
+                    # 2. Show Top Loser ONLY if it's different from Top Gainer
+                    if top_gainer_name != top_loser_name:
+                        if top_loser_pct < 0:
+                             log.info("💀 TOP LOSER : %s (%.2f%%)", _red(_bold(top_loser_name)), top_loser_pct)
+                        else:
+                             log.info("💀 TOP LOSER : %s (+%.2f%%)", top_loser_name, top_loser_pct)
+
+                    log.info("-" * 40)
+                    log.info("All Sectors Ranked:")
+                    
+                    for i, (sec, avg_pct) in enumerate(ranked, 1):
+                        cnt = self.sector_cnt.get(sec, 0)
+                        emoji = "🟢" if avg_pct > 0 else "🔴" if avg_pct < 0 else "⚪"
+                        
+                        # Highlight top 2 boundaries if relevant
+                        prefix = "   "
+                        if i <= 2: prefix = "⚡ " # Top 2
+                        
+                        log.info("  %s%2d. %s %-25s %+7.2f%% (%d stocks)", 
+                                prefix, i, emoji, sec, avg_pct, cnt)
+                    log.info("="*80 + "\n")
 
         pos = self.positions.get(symbol)
         if not pos or pos.status != "OPEN":
@@ -1050,12 +1178,17 @@ class TradeEngine:
         if now - last >= self.monitor_log_interval_sec:
             self._mon_last_log[symbol] = now
 
-            ## -----------------------------
+            # -----------------------------
             # ✅ MONITOR LOG (BOXED)
             # -----------------------------
-            sym_tag = _bg_blue(f" {symbol} ")   # or _bg_yellow(f" {symbol} ")
+            sym_tag = _bg_blue(f" {symbol} ") 
+            
+            # Format sector badge if available
+            sec_tag = ""
+            if hasattr(pos, "sector") and pos.sector:
+                sec_tag = " " + _bg_magenta(f" {pos.sector} ") 
 
-            title = _bold(_cyan("📈 MONITOR")) + " " + sym_tag + " " + _dim(f"alert={pos.alert_name}")
+            title = _bold(_cyan("📈 MONITOR")) + " " + sym_tag + sec_tag + " " + _dim(f"alert={pos.alert_name}")
 
             line1 = (
                 f"{_bold(_cyan(symbol))}  {_fmt_side(pos.side)} {pos.qty} {pos.product}  "
@@ -1385,10 +1518,15 @@ class TradeEngine:
                         float(pos.pnl),
                     )
 
+                    # Delete from Redis and memory instead of keeping CLOSED positions
                     try:
-                        await self.store.upsert_position(self.user_id, symbol, pos.to_public())
+                        await self.store.delete_position(self.user_id, symbol)
+                        # Remove from memory
+                        if symbol in self.positions:
+                            del self.positions[symbol]
+                        log.info("🗑️ POSITION_DELETED | user=%s symbol=%s (CLOSED)", self.user_id, symbol)
                     except Exception as e:
-                        log.debug("📝 EXIT_UPSERT_FAIL2 | user=%s symbol=%s err=%s", self.user_id, symbol, e)
+                        log.debug("📝 DELETE_POS_FAIL | user=%s symbol=%s err=%s", self.user_id, symbol, e)
 
                 except Exception as e:
                     pos.status = "ERROR"

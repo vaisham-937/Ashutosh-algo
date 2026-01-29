@@ -29,9 +29,9 @@ def _now_ist_str() -> str:
     """
     if pytz is None:
         # local time fallback
-        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S").replace(" ", "T")
     ist = pytz.timezone("Asia/Kolkata")
-    return datetime.now(ist).strftime("%Y-%m-%d %H:%M:%S")
+    return datetime.now(ist).strftime("%Y-%m-%d %H:%M:%S").replace(" ", "T")
 
 def normalize_alert_name(name: Any) -> str:
     """
@@ -245,6 +245,9 @@ def parse_chartink_payload(payload: Dict[str, Any]) -> Tuple[str, List[str], str
     # -------- timestamp --------
     raw_ts = _first_present(payload, ("triggered_at", "time", "timestamp", "datetime"))
     ts = "" if raw_ts is None else str(raw_ts)
+    
+    if not ts:
+        ts = _now_ist_str()
 
     # -------- symbols extraction --------
     raw_symbols = _first_present(payload, ("stocks", "symbols", "stocks[]", "symbol", "stock", "tradingsymbol"))

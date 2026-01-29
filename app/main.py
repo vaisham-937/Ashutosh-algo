@@ -9,7 +9,7 @@ import datetime
 
 from typing import Any, Dict, List, Optional, Set, Tuple
 from fastapi import HTTPException
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -301,18 +301,31 @@ async def subscribe_symbols_for_user(user_id: int, symbols: List[str]) -> None:
         if tok not in SUB_TOKENS:
             SUB_TOKENS.add(tok)
             changed = True
+        # else: already subscribed
+
+    if not changed:
+        # Just logging for debug
+        # print(f"[SUB] No new tokens to subscribe. syms={norm_syms}")
+        pass
+    
+    missing_syms = [s for s in norm_syms if not SYMBOL_TOKEN.get(s)]
+    if missing_syms:
+        print(f"⚠️ [SUB_WARNING] The following symbols could not be resolved to tokens (check mapping/spelling): {missing_syms}")
 
         TOKEN_TO_SYMBOL[int(tok)] = sym
 
     # Update live ticker subscriptions if running
-    if changed and KT and KT_CONNECTED and SUB_TOKENS:
-        try:
-            KT.subscribe(list(SUB_TOKENS))
-            # FULL mode gives ohlc.close/high/low etc
-            KT.set_mode(KT.MODE_FULL, list(SUB_TOKENS))
-            print(f"[SUB] subscribed tokens={len(SUB_TOKENS)} mode=FULL")
-        except Exception as e:
-            print("[SUB] subscribe failed:", e)
+    if changed:
+        if KT and KT_CONNECTED:
+            try:
+                KT.subscribe(list(SUB_TOKENS))
+                # FULL mode gives ohlc.close/high/low etc
+                KT.set_mode(KT.MODE_FULL, list(SUB_TOKENS))
+                print(f"[SUB] ✅ SUBSCRIBED to {len(SUB_TOKENS)} tokens (added {len(norm_syms)} new). KT_CONNECTED=True")
+            except Exception as e:
+                print(f"[SUB] ❌ subscribe failed: {e}")
+        else:
+             print(f"[SUB] ⚠️ Added to set, but KT not connected/ready. Count={len(SUB_TOKENS)}. KT={KT is not None} CONN={KT_CONNECTED}")
 
 
 # -----------------------------
@@ -385,6 +398,11 @@ async def start_kite_ticker(user_id: int) -> None:
             print("[KT] error", code, reason)
 
         def on_ticks(ws, ticks):
+            if ticks:
+                 # Debug: print first few tokens to verify we get data
+                 sample = [t.get('instrument_token') for t in ticks[:3]]
+                 # print(f"[KT] TICKS RECEIVED: {len(ticks)} sample={sample}")
+
             loop = APP_LOOP
             if loop is None:
                 return
@@ -646,6 +664,18 @@ async def list_alert_config(user_id: int = 1) -> Dict[str, Any]:
     return {"configs": cfg}
 
 
+@app.delete("/api/alerts")
+async def delete_all_alerts(user_id: int = 1) -> Dict[str, Any]:
+    """Clear all alert history for a user"""
+    user_id = int(user_id)
+    try:
+        await store.r.delete(f"alerts:{user_id}")
+        return {"status": "ok", "message": "All alerts cleared"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+
 @app.post("/api/alert-config")
 async def save_alert_config(payload: Dict[str, Any]) -> Dict[str, Any]:
     user_id = int(payload.get("user_id", 1))
@@ -661,6 +691,28 @@ async def save_alert_config(payload: Dict[str, Any]) -> Dict[str, Any]:
     payload2["alert_name_raw"] = str(raw_name)
 
     await store.save_alert_config(user_id, payload2)
+    
+    # Log top sectors if sector filter is enabled
+    if str(payload2.get("sector_on", "false")).lower() == "true":
+         try:
+             eng = await ensure_engine(user_id)
+             ranks = eng.get_sector_rank()
+             top_n = int(payload2.get("topn", 3))
+             
+             # Get top N sectors
+             top_sectors = ranks[:top_n]
+             
+             # Format for log
+             sector_str = ", ".join([f"{s[0]} ({s[1]:+.2f}%)" for s in top_sectors])
+             
+             print("\n" + "="*60)
+             print(f"✅ ALERT CONFIG SAVED: '{alert_name}'")
+             print(f"🔍 Sector Filter: TOP {top_n}")
+             print(f"📊 Current Top {top_n}: {sector_str}")
+             print("="*60 + "\n")
+         except Exception as e:
+             print(f"⚠️ Failed to log top sectors: {e}")
+
     return {"status": "saved", "config": payload2}
 
 
@@ -672,6 +724,39 @@ async def delete_alert_config_api(payload: Dict[str, Any]) -> Dict[str, Any]:
     if not deleted:
         return {"status": "not_found", "deleted": False}
     return {"status": "deleted", "deleted": True}
+
+
+# -----------------------------
+# Position Management
+# -----------------------------
+@app.post("/api/position/squareoff")
+async def squareoff_position(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Square off a single position"""
+    user_id = int(payload.get("user_id", 1))
+    symbol = str(payload.get("symbol", "")).strip()
+    
+    if not symbol:
+        return {"error": "SYMBOL_REQUIRED"}
+    
+    eng = await ensure_engine(user_id)
+    try:
+        await eng._exit_position(symbol, reason="MANUAL_SQUAREOFF")
+        return {"status": "ok", "symbol": symbol, "message": "Exit order sent"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/api/position/exit-all")
+async def exit_all_positions_api(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Exit all open positions"""
+    user_id = int(payload.get("user_id", 1))
+    
+    eng = await ensure_engine(user_id)
+    try:
+        count = await eng.exit_all_open_positions(reason="MANUAL_EXIT_ALL")
+        return {"status": "ok", "count": count, "message": f"Exit orders sent for {count} positions"}
+    except Exception as e:
+        return {"error": str(e)}
 
 
 # -----------------------------
@@ -732,11 +817,11 @@ async def chartink_webhook(request: Request, user_id: int = 1) -> Dict[str, Any]
     }
     print(f"📥 Chartink alert_data → {alert_data}")
 
-    # Push to UI
-    await ws_mgr.broadcast(user_id, alert_data)
+    # Store alert history FIRST so it's ready when UI refetches
+    await store.save_alert(user_id, alert_data)
 
-    # Store alert history in background
-    asyncio.create_task(store.save_alert(user_id, alert_data))
+    # Push to UI (which triggers reload)
+    await ws_mgr.broadcast(user_id, alert_data)
 
     return {
         "ok": True,
@@ -745,6 +830,22 @@ async def chartink_webhook(request: Request, user_id: int = 1) -> Dict[str, Any]
         "result": res,
         "content_type": content_type,
     }
+
+
+# -----------------------------
+# Sectors
+# -----------------------------
+@app.get("/api/sectors/top")
+async def get_top_sectors(user_id: int = Query(..., alias="user_id"), limit: int = 10):
+    """
+    Get current top N performing sectors.
+    """
+    eng = await ensure_engine(user_id)
+    ranks = eng.get_sector_rank()
+    
+    # Format for display: [{"name": "NIFTY AUTO", "pct": 1.23}, ...]
+    top = [{"name": r[0], "pct": r[1]} for r in ranks[:limit]]
+    return {"sectors": top}
 
 
 # -----------------------------
