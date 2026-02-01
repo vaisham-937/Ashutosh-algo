@@ -5,11 +5,14 @@ from typing import Any, Dict, List, Tuple, Optional
 from datetime import datetime
 import json
 import re
+import html
 
 try:
     import pytz  # type: ignore
 except ImportError:
     pytz = None
+
+from .redis_store import norm_symbol as _norm_symbol, norm_alert_name as _norm_alert_name
 
 # ============================================================
 # Normalizers (MUST match RedisStore + TradeEngine usage)
@@ -34,17 +37,7 @@ def _now_ist_str() -> str:
     return datetime.now(ist).strftime("%Y-%m-%d %H:%M:%S").replace(" ", "T")
 
 def normalize_alert_name(name: Any) -> str:
-    """
-    Normalizes alert/scan names to stable Redis key:
-    - lower-case
-    - "_" and "-" become spaces
-    - collapse multiple whitespace
-    """
-    s = "" if name is None else str(name)
-    s = _ZERO_WIDTH.sub("", s).strip().lower()
-    s = s.replace("_", " ").replace("-", " ")
-    s = " ".join(s.split())
-    return s
+    return _norm_alert_name(str(name))
 
 
 def _strip_exchange_prefix(s: str) -> str:
@@ -69,29 +62,17 @@ def _strip_common_suffixes(s: str) -> str:
 def normalize_symbol(sym: Any) -> str:
     """
     Normalize symbols coming from Chartink / UI:
-    - remove zero-width chars
-    - uppercase
-    - remove exchange prefix (NSE:/BSE:)
-    - remove common suffixes (-EQ, .NS)
-    - keep only Zerodha-valid chars: A-Z 0-9 - &
+    Uses redis_store.norm_symbol as base, plus legacy char whitelist for safety.
     """
-    s = "" if sym is None else str(sym)
-    s = _ZERO_WIDTH.sub("", s).strip().upper()
+    s = _norm_symbol(str(sym))
     if not s:
         return ""
 
-    s = _strip_exchange_prefix(s)
-    s = s.strip().upper()
-    if not s:
-        return ""
-
-    s = _strip_common_suffixes(s.strip().upper())
-
-    # Keep only allowed chars for Zerodha tradingsymbol
-    allowed = set("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-&")
-    s = "".join(ch for ch in s if ch in allowed).strip().upper()
-
-    if not s or s in {"NSE", "BSE"}:
+    # Keep only allowed chars for Zerodha tradingsymbol (Legacy safety)
+    allowed = set("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-& ")
+    s = "".join(ch for ch in s if ch in allowed).strip()
+    
+    if s in {"NSE", "BSE"}:
         return ""
     return s
 
@@ -243,11 +224,8 @@ def parse_chartink_payload(payload: Dict[str, Any]) -> Tuple[str, List[str], str
     alert_name = normalize_alert_name(raw_alert or "UNKNOWN_ALERT")
 
     # -------- timestamp --------
-    raw_ts = _first_present(payload, ("triggered_at", "time", "timestamp", "datetime"))
-    ts = "" if raw_ts is None else str(raw_ts)
-    
-    if not ts:
-        ts = _now_ist_str()
+    # Force Server IST time to ensure dashboard shows correct relative time
+    ts = _now_ist_str()
 
     # -------- symbols extraction --------
     raw_symbols = _first_present(payload, ("stocks", "symbols", "stocks[]", "symbol", "stock", "tradingsymbol"))
@@ -268,6 +246,8 @@ def parse_chartink_payload(payload: Dict[str, Any]) -> Tuple[str, List[str], str
     for item in items:
         # item can still have commas/newlines
         for part in str(item).replace("\n", ",").split(","):
+            # Unescape HTML entities (e.g. M&amp;M -> M&M)
+            part = html.unescape(part)
             n = normalize_symbol(part)
             if n:
                 syms.append(n)

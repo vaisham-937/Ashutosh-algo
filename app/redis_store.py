@@ -48,13 +48,14 @@ def norm_symbol(s: str) -> str:
       - "NSE:SBIN"    -> "SBIN"
       - "SBIN-EQ"     -> "SBIN"
       - "nse:infy-eq" -> "INFY"
+      - "NIFTY BANK"  -> "NIFTY BANK" (Indices kept as is, but stripped)
     """
     x = (s or "").strip().upper()
     x = _ZERO_WIDTH.sub("", x).strip()
 
-    # Remove exchange prefix like "NSE:" / "BSE:"
+    # Remove exchange prefix like "NSE:" / "BSE:" / "NFO:"
     if ":" in x:
-        x = x.split(":")[-1].strip()
+        x = x.split(":", 1)[1].strip()
 
     # Remove common suffixes
     if x.endswith("-EQ"):

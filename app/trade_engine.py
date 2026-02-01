@@ -107,18 +107,9 @@ def _fmt_pct(x: float) -> str:
 def _safe_symbol(raw: str) -> str:
     """
     Manual-squareoff UI sometimes sends: NSE:SBIN, SBIN-EQ, etc.
-    We keep norm_symbol as primary, and add a safe fallback.
+    We keep norm_symbol as primary.
     """
-    s = norm_symbol(raw or "")
-    if s:
-        return s
-
-    x = (raw or "").strip().upper()
-    x = x.replace("NSE:", "").replace("BSE:", "").replace("NFO:", "")
-    if x.endswith("-EQ"):
-        x = x[:-3]
-    x = x.replace(" ", "").replace("/", "").replace("\\", "")
-    return norm_symbol(x) or x
+    return norm_symbol(raw)
 
 
 def _pct_dist(cur: float, ref: float) -> float:
@@ -326,9 +317,10 @@ class TradeEngine:
     - Manual squareoff fixed (works even if inflight)
     """
 
-    def __init__(self, user_id: int, store: RedisStore) -> None:
+    def __init__(self, user_id: int, store: RedisStore, broadcast_cb: Optional[Any] = None) -> None:
         self.user_id = int(user_id)
         self.store = store
+        self.broadcast_cb = broadcast_cb
 
         self.api_key: str = ""
         self.access_token: str = ""
@@ -550,22 +542,37 @@ class TradeEngine:
                 validity=kite.VALIDITY_DAY,
             )
 
-        oid = await self.order_worker.submit(
-            _place,
-            api_key=self.api_key,
-            access_token=self.access_token,
-            sym=symbol,
-            s=side,
-            q=int(qty),
-            prod=product,
-        )
-        return str(oid)
+        try:
+            oid = await self.order_worker.submit(
+                _place,
+                api_key=self.api_key,
+                access_token=self.access_token,
+                sym=symbol,
+                s=side,
+                q=int(qty),
+                prod=product,
+            )
+            return str(oid)
+        except Exception as e:
+            # KILL SWITCH TRIGGER
+            log.error("🔥 ORDER_FLAGS_KILL_SWITCH | user=%s sym=%s err=%s", self.user_id, symbol, e)
+            await self.store.set_kill(self.user_id, True)
+            raise e
 
     # ---------------- Zerodha order updates (ws) ----------------
     async def on_order_update(self, ou: Dict[str, Any]) -> None:
         """
         Zerodha websocket order updates -> set entry_price from average_price when entry fills.
         """
+        try:
+            await self._on_order_update_unsafe(ou)
+        except Exception as e:
+            log.exception("🔥 CRITICAL_ORDER_UPDATE_ERROR | user=%s err=%s", self.user_id, e)
+            # Optional: Kill switch on order update error? Maybe not, as it might be parsing error.
+            # But if it's critical, yes. Safe to just log for now unless it breaks state.
+            pass
+
+    async def _on_order_update_unsafe(self, ou: Dict[str, Any]) -> None:
         try:
             status = str(ou.get("status") or "").upper()
             order_id = str(ou.get("order_id") or "").strip()
@@ -813,6 +820,50 @@ class TradeEngine:
             if not sym2:
                 continue
             r = await self._try_enter(sym2, alert_key, cfg)
+            
+            # Inject latest tick data into result for immediate UI feedback
+            tick = self.ticks.get(sym2, {})
+            
+            # Fallback: If no tick, try REST quote (for fresh alerts)
+            if not tick or tick.get("ltp", 0.0) == 0:
+                try:
+                    # We need a kite instance.
+                    # This might fail if not connected, but worth a try for accurate UI.
+                    if self.api_key and self.access_token:
+                        # Temporary kite client just for quote? Or use a shared one?
+                        # Since we don't have a persistent kite client object in TradeEngine,
+                        # we can try to use a lightweight approach or just skip.
+                        # For now, let's rely on the main loop's Ticker. 
+                        # But wait, we can't easily get a quote without a kite instance.
+                        # Let's try to grab one from the store/creds if we really need it,
+                        # OR better: just checking ticks is usually enough if auto-sub works fast.
+                        # However, for the very first alert, auto-sub happens *after*.
+                        # So we SHOULD try to get a quote if possible.
+                        
+                        # Re-instantiate a temp kite for this (rate limits apply, be careful)
+                        # Only do this if we have absolutely NO data.
+                        k = KiteConnect(api_key=self.api_key)
+                        k.set_access_token(self.access_token)
+                        # "NSE:SBIN" format
+                        q_key = f"NSE:{sym2}"
+                        qs = k.quote([q_key])
+                        if qs and q_key in qs:
+                            d = qs[q_key]
+                            tick = {
+                                "ltp": d.get("last_price", 0.0),
+                                "close": d.get("ohlc", {}).get("close", 0.0)
+                            }
+                            # Only update cache if it's empty
+                            if sym2 not in self.ticks:
+                                self.ticks[sym2] = tick
+                except Exception as e:
+                    log.debug("⚠️ QUOTE_FALLBACK_FAIL | %s | %s", sym2, e)
+
+            r["ltp"] = float(tick.get("ltp", 0.0))
+            ltp = r["ltp"]
+            close = float(tick.get("close", 0.0))
+            r["pct"] = ((ltp - close) / close * 100.0) if close > 0 else 0.0
+            
             out.append(r)
 
         entered = sum(1 for r in out if r.get("status") == "ENTERED")
@@ -994,6 +1045,22 @@ class TradeEngine:
         low: float,
         tbq: float = 0.0,
         tsq: float = 0.0,
+    ) -> Optional[Position]:
+        try:
+            return await self._on_tick_unsafe(symbol, ltp, close, high, low, tbq, tsq)
+        except Exception as e:
+            log.exception("🔥 CRITICAL_TICK_ERROR | user=%s symbol=%s err=%s", self.user_id, symbol, e)
+            return None
+
+    async def _on_tick_unsafe(
+        self,
+        symbol: str, 
+        ltp: float,
+        close: float,
+        high: float,
+        low: float,
+        tbq: float,
+        tsq: float
     ) -> Optional[Position]:
         symbol = norm_symbol(symbol)
         if not symbol or ltp <= 0:
@@ -1525,6 +1592,11 @@ class TradeEngine:
                         if symbol in self.positions:
                             del self.positions[symbol]
                         log.info("🗑️ POSITION_DELETED | user=%s symbol=%s (CLOSED)", self.user_id, symbol)
+                        
+                        # ✅ Trigger UI refresh
+                        if self.broadcast_cb:
+                            self.broadcast_cb(self.user_id, {"type": "pos_refresh"})
+                            
                     except Exception as e:
                         log.debug("📝 DELETE_POS_FAIL | user=%s symbol=%s err=%s", self.user_id, symbol, e)
 
@@ -1577,6 +1649,12 @@ class TradeEngine:
         symbols = [s for s, p in self.positions.items() if p.status == "OPEN"]
         
         if not symbols:
+            return 0
+
+        # 🛑 KILL SWITCH CHECK
+        if await self.store.is_kill(self.user_id):
+            log.error("🛑 KILL_SWITCH_ACTIVE | user=%s | Rejecting exit_all for reason=%s", self.user_id, reason)
+            # Return 0 as no positions will be exited
             return 0
 
         log.info("⏰ EXIT_ALL_TRIGGER | user=%s reason=%s count=%s symbols=%s", self.user_id, reason, len(symbols), symbols)

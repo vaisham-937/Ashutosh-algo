@@ -37,7 +37,15 @@ logging.basicConfig(
 logging.getLogger("trade_engine").setLevel(logging.INFO)
 logging.getLogger("uvicorn").setLevel(logging.INFO)
 logging.getLogger("uvicorn.error").setLevel(logging.INFO)
-logging.getLogger("uvicorn.access").setLevel(logging.INFO)
+# Filter out spammy health check logs
+class EndpointFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        # Return False to filter OUT the record if it matches our path
+        return record.args and len(record.args) >= 3 and "/api/zerodha-status" not in str(record.args[2])
+
+# Apply filter to suppress only the specific status endpoint
+logging.getLogger("uvicorn.access").setLevel(logging.INFO)  # Keep INFO for other requests
+logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
 
 # -----------------------------
 # Config
@@ -90,6 +98,10 @@ _SESSION_CACHE_TTL = 30.0  # seconds
 _LAST_POS_SAVE: Dict[Tuple[int, str], float] = {}
 _POS_SAVE_THROTTLE_SEC = 0.8
 
+# Throttle instrument reload
+_LAST_INSTR_RELOAD = 0.0
+_INSTR_RELOAD_INTERVAL = 300.0  # 5 minutes
+
 
 # -----------------------------
 # Helpers
@@ -110,25 +122,9 @@ def _kite_client(api_key: str, access_token: str) -> KiteConnect:
 def _sym_safe(x: Any) -> str:
     """
     Strong symbol normalizer (extra-safe).
-    Your chartink_client.normalize_symbol should already do this,
-    but this protects you from SBIN-EQ / NSE:SBIN / SBIN.NS, etc.
+    Uses redis_store.norm_symbol as the single source of truth.
     """
-    s = normalize_symbol(x)
-    s = (s or "").strip().upper()
-
-    # common suffix/prefix cleanups (idempotent if already clean)
-    if ":" in s:
-        s = s.split(":", 1)[1].strip()
-
-    if s.endswith(".NS"):
-        s = s[:-3]
-
-    if s.endswith("-EQ"):
-        s = s[:-3]
-
-    # final cleanup
-    s = "".join(s.split())
-    return s
+    return normalize_symbol(x)
 
 
 async def is_session_valid(user_id: int) -> bool:
@@ -167,7 +163,7 @@ async def is_session_valid(user_id: int) -> bool:
 async def ensure_engine(user_id: int) -> TradeEngine:
     user_id = int(user_id)
     if user_id not in ENGINE:
-        ENGINE[user_id] = TradeEngine(user_id=user_id, store=store)
+        ENGINE[user_id] = TradeEngine(user_id=user_id, store=store, broadcast_cb=ws_mgr.broadcast_nowait)
         await ENGINE[user_id].configure_kite()
 
         # ✅ Restore open positions after restart
@@ -202,20 +198,52 @@ async def build_symbol_token_map_from_kite(user_id: int) -> bool:
         kite.set_access_token(access_token)
 
         print("[INSTR] Downloading NSE instruments...")
-        instruments = kite.instruments("NSE")  # list[dict]
+        all_instruments = kite.instruments("NSE")
+
+        if not all_instruments:
+            print("[INSTR] ❌ No instruments returned from Kite")
+            return False
+
+        # Clear maps
+        temp_sym_tok = {}
+        temp_tok_sym = {}
+
+        for ins in all_instruments:
+            # We want BOTH original tradingsymbol and normalized one to be safe
+            raw_sym = ins.get("tradingsymbol", "")
+            norm_sym = _sym_safe(raw_sym)
+            tok = ins.get("instrument_token")
+            
+            if tok:
+                itok = int(tok)
+                temp_tok_sym[itok] = norm_sym
+                
+                # Store under both raw and normalized if different
+                if raw_sym:
+                    temp_sym_tok[raw_sym] = itok
+                if norm_sym:
+                    temp_sym_tok[norm_sym] = itok
 
         SYMBOL_TOKEN.clear()
+        SYMBOL_TOKEN.update(temp_sym_tok)
         TOKEN_TO_SYMBOL.clear()
+        TOKEN_TO_SYMBOL.update(temp_tok_sym)
 
-        for ins in instruments or []:
-            sym = _sym_safe(ins.get("tradingsymbol", ""))
-            tok = ins.get("instrument_token")
-            if sym and tok:
-                itok = int(tok)
-                SYMBOL_TOKEN[sym] = itok
-                TOKEN_TO_SYMBOL[itok] = sym
+        print(f"[INSTR] ✅ Loaded {len(SYMBOL_TOKEN)} symbols into memory (Source: NSE)")
+        
+        # Debug: check if common symbols are present - Explicit check for M&M and friends
+        for test_sym in ["TATAMOTORS", "PEL", "SBIN", "RELIANCE", "M&M", "NIVABUPA"]:
+            found = False
+            if test_sym in SYMBOL_TOKEN:
+                print(f"[INSTR] Verified: {test_sym} -> {SYMBOL_TOKEN[test_sym]}")
+                found = True
+            if f"{test_sym}-EQ" in SYMBOL_TOKEN:
+                 print(f"[INSTR] Verified: {test_sym} found as {test_sym}-EQ -> {SYMBOL_TOKEN[f'{test_sym}-EQ']}")
+                 found = True
+            
+            if not found:
+                print(f"[INSTR] ⚠️ Not found in NSE map: {test_sym}")
 
-        print(f"[INSTR] Loaded {len(SYMBOL_TOKEN)} NSE symbols into memory")
         return True
     except Exception as e:
         print("[INSTR] instruments download failed:", e)
@@ -301,18 +329,25 @@ async def subscribe_symbols_for_user(user_id: int, symbols: List[str]) -> None:
         if tok not in SUB_TOKENS:
             SUB_TOKENS.add(tok)
             changed = True
-        # else: already subscribed
-
-    if not changed:
-        # Just logging for debug
-        # print(f"[SUB] No new tokens to subscribe. syms={norm_syms}")
-        pass
+        else:
+             # Already subscribed
+             pass
+             
+        # Validation Log
+        if tok:
+             # print(f"[SUB_CHECK] ✅ {sym} -> {tok}")
+             pass
     
     missing_syms = [s for s in norm_syms if not SYMBOL_TOKEN.get(s)]
     if missing_syms:
-        print(f"⚠️ [SUB_WARNING] The following symbols could not be resolved to tokens (check mapping/spelling): {missing_syms}")
-
-        TOKEN_TO_SYMBOL[int(tok)] = sym
+        print(f"⚠️ [SUB_WARNING] Could not resolve tokens for: {missing_syms}. (Total Map: {len(SYMBOL_TOKEN)})")
+        # Trigger reload if enough time has passed
+        global _LAST_INSTR_RELOAD
+        now = time.time()
+        if now - _LAST_INSTR_RELOAD > _INSTR_RELOAD_INTERVAL:
+            _LAST_INSTR_RELOAD = now
+            print("[INSTR] 🔄 Triggering periodic instrument reload due to missing symbols...")
+            asyncio.create_task(build_symbol_token_map_from_kite(user_id))
 
     # Update live ticker subscriptions if running
     if changed:
@@ -321,7 +356,7 @@ async def subscribe_symbols_for_user(user_id: int, symbols: List[str]) -> None:
                 KT.subscribe(list(SUB_TOKENS))
                 # FULL mode gives ohlc.close/high/low etc
                 KT.set_mode(KT.MODE_FULL, list(SUB_TOKENS))
-                print(f"[SUB] ✅ SUBSCRIBED to {len(SUB_TOKENS)} tokens (added {len(norm_syms)} new). KT_CONNECTED=True")
+                print(f"[SUB] ✅ SUBSCRIBED to {len(SUB_TOKENS)} tokens. New: {len(norm_syms)} -> {[s for s in norm_syms if s not in missing_syms]}")
             except Exception as e:
                 print(f"[SUB] ❌ subscribe failed: {e}")
         else:
@@ -508,8 +543,8 @@ async def schedule_auto_squareoff():
             tz = pytz.timezone("Asia/Kolkata")
             now = datetime.datetime.now(tz)
             
-            # Target: 15:15 (3:15 PM)
-            if now.hour == 15 and now.minute >= 15:
+            # Target: 15:20 (3:20 PM)
+            if now.hour == 15 and now.minute >= 20:
                 # Check all users (currently only 1 supported primarily, but loop capable)
                 user_ids = [1] 
                 
@@ -518,7 +553,8 @@ async def schedule_auto_squareoff():
                         if not await store.has_auto_sq_off_run(uid):
                             print(f"⏰ [AUTO_SQ_OFF] Triggering for user={uid} at {now}")
                             eng = await ensure_engine(uid)
-                            cnt = await eng.exit_all_open_positions(reason="AUTO_SQ_OFF_315")
+                            # Passing reason AUTO_SQ_OFF_320 to differentiate
+                            cnt = await eng.exit_all_open_positions(reason="AUTO_SQ_OFF_320")
                             await store.mark_auto_sq_off_run(uid)
                             
                             # Notify UI
@@ -548,6 +584,11 @@ async def startup():
 
     # Auto-start if already logged in
     try:
+        # ✅ Auto-enable Auto Square Off if not set (Default: ON)
+        if not await store.is_auto_sq_off_enabled(1):
+            await store.set_auto_sq_off_enabled(1, True)
+            print("⚙️ [STARTUP] Auto Square Off DEFAULT -> ENABLED")
+
         ok = await is_session_valid(1)
         if ok:
             async with INSTR_LOCK:
@@ -651,7 +692,8 @@ async def zerodha_callback(request: Request, user_id: int = 1):
 async def zerodha_status(user_id: int = 1) -> Dict[str, Any]:
     user_id = int(user_id)
     ok = await is_session_valid(user_id)
-    return {"connected": ok}
+    kill = await store.is_kill(user_id)
+    return {"connected": ok, "kill_switch": kill}
 
 
 # -----------------------------
@@ -806,7 +848,13 @@ async def chartink_webhook(request: Request, user_id: int = 1) -> Dict[str, Any]
     asyncio.create_task(subscribe_symbols_for_user(user_id, symbols))
 
     # Process alert -> orders
-    res = await eng.on_chartink_alert(alert_name, symbols)
+    try:
+        res = await eng.on_chartink_alert(alert_name, symbols)
+    except Exception as e:
+        print(f"🔥 [WEBHOOK_PANIC] Critical Trade Engine Error: {e}")
+        await store.set_kill(user_id, True)
+        res = [{"symbol": s, "status": "ERROR", "reason": f"CRITICAL_FAIL:{e}"} for s in symbols]
+
 
     alert_data = {
         "type": "alert",
@@ -835,6 +883,17 @@ async def chartink_webhook(request: Request, user_id: int = 1) -> Dict[str, Any]
 # -----------------------------
 # Sectors
 # -----------------------------
+@app.post("/api/subscribe-symbols")
+async def api_subscribe_symbols(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Force subscription for a batch of symbols (used by UI)"""
+    user_id = int(payload.get("user_id", 1))
+    symbols = payload.get("symbols", [])
+    if symbols:
+        # Normalize and subscribe
+        await subscribe_symbols_for_user(user_id, symbols)
+    return {"ok": True, "count": len(symbols)}
+
+
 @app.get("/api/sectors/top")
 async def get_top_sectors(user_id: int = Query(..., alias="user_id"), limit: int = 10):
     """

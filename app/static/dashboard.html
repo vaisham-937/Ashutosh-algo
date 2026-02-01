@@ -13,16 +13,19 @@
     rel="stylesheet">
   <style>
     :root {
+      /* DARK THEME VARIABLES */
       --bg: #030712;
       --cyan: #22d3ee;
       --cyan-dim: rgba(34, 211, 238, 0.1);
       --glass: rgba(17, 24, 39, 0.7);
       --glass-border: rgba(255, 255, 255, 0.08);
+      --text-main: #f3f4f6;
+      --text-muted: #94a3b8;
     }
 
     body {
-      background-color: #020617;
-      color: #f3f4f6;
+      background-color: var(--bg);
+      color: var(--text-main);
       font-family: 'Inter', system-ui, sans-serif;
       /* Premium Deep Mesh Gradient Animated */
       background-image:
@@ -295,78 +298,86 @@
   <div id="stars" class="fixed inset-0 pointer-events-none z-0"></div>
 
   <!-- Navbar -->
-  <nav class="fixed top-0 w-full z-50 glass border-b-0 border-b-white/5">
-    <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-      <div class="flex items-center gap-6">
-        <a href="#" class="flex items-center gap-2 group">
-          <div
-            class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white text-lg font-bold shadow-lg shadow-cyan-500/20 group-hover:scale-105 transition-transform duration-300">
-            A
+  <nav class="fixed top-0 w-full z-50 glass border-b border-b-white/5 shadow-2xl">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <!-- Logo -->
+        <div class="flex items-center gap-3">
+          <div class="relative group">
+            <div
+              class="absolute -inset-1 bg-gradient-to-r from-cyan-400 to-blue-600 rounded-lg blur opacity-40 group-hover:opacity-75 transition duration-200">
+            </div>
+            <div
+              class="relative bg-gradient-to-br from-cyan-400 to-blue-600 border border-white/10 rounded-lg w-10 h-10 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+              <span class="text-white font-bold text-xl font-[Outfit]">A</span>
+            </div>
           </div>
           <div class="flex flex-col">
-            <span
-              class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">AshAlgo</span>
-            <span class="text-[10px] text-cyan-400 font-semibold tracking-wider uppercase">Pro Terminal</span>
+            <span class="text-2xl font-bold text-white tracking-tight leading-none font-[Outfit]">
+              AshAlgo
+            </span>
+            <span class="text-[10px] font-bold text-cyan-400 tracking-[0.2em] leading-none mt-0.5">PRO TERMINAL</span>
           </div>
-        </a>
-        <div class="h-8 w-px bg-white/10 hidden md:block"></div>
-        <div
-          class="hidden md:flex items-center gap-2 text-xs font-medium text-slate-400 bg-white/5 px-3 py-1.5 rounded-full border border-white/5">
-          <span class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
-          User ID : <span class="text-slate-200">{{USER_ID}}</span>
         </div>
-      </div>
 
-      <div class="flex items-center gap-4">
-        <div class="flex gap-2">
-          <!-- Broker Status -->
+        <!-- Right Side -->
+        <div class="flex items-center gap-3">
+          <!-- User ID Pill -->
+          <div class="hidden md:flex items-center px-3 py-1.5 rounded-full bg-white/5 border border-white/10 gap-2">
+            <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+            <span class="text-xs font-bold text-slate-300">User ID : {{ USER_ID }}</span>
+          </div>
+
+          <!-- Kite Status -->
           <div id="zbadge"
-            class="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20 shadow-[0_0_10px_rgba(244,63,94,0.2)] transition-all">
-            <span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block mr-1.5 animate-pulse"></span> DISCONNECTED
+            class="hidden md:flex items-center px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 gap-2">
+            <div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+            <span class="text-[10px] font-bold tracking-wider uppercase">KITE: CONNECTED</span>
           </div>
-          <!-- Feed Status -->
+
+          <!-- WS Status -->
           <div id="wsbadge"
-            class="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20 shadow-[0_0_10px_rgba(244,63,94,0.2)] transition-all">
-            <span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block mr-1.5 animate-pulse"></span> DISCONNECTED
+            class="hidden md:flex items-center px-3 py-1.5 rounded-full bg-white/5 border border-white/10 gap-2">
+            <div class="w-1.5 h-1.5 rounded-full bg-slate-500"></div>
+            <span class="text-[10px] font-bold text-slate-500 tracking-wider uppercase">WS: CONNECTING</span>
           </div>
+
+          <!-- Kill Switch -->
+          <button id="killBtn" onclick="killSwitch()"
+            class="hidden sm:flex btn px-4 py-1.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-all font-bold text-xs uppercase tracking-wider">
+            ⚠️ Kill Switch
+          </button>
+
+          <!-- Square Off All -->
+          <button onclick="exitAllPositions()"
+            class="hidden sm:flex btn px-4 py-1.5 rounded-lg bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-purple-500/20 hover:shadow-purple-500/40 border border-white/10 transition-all">
+            Square Off All
+          </button>
+
+          <!-- Configure Alert -->
+          <button onclick="openCfg()"
+            class="btn px-4 py-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 border border-white/10 transition-all">
+            + Configure Alert
+          </button>
+
+          <!-- Settings Icon/Feed -->
+          <!-- Settings Icon/Feed -->
+          <button onclick="openCred()" title="Broker Credentials"
+            class="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition border border-white/10">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
+              </path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+          </button>
         </div>
-
-        <div class="h-8 w-px bg-white/10 mx-2"></div>
-
-        <!-- Square Off All Button (Header) -->
-        <button onclick="exitAllPositions()"
-          class="btn px-3 py-1.5 text-[10px] uppercase tracking-wider text-white shadow-lg transition-all bg-gradient-to-r from-fuchsia-500 to-cyan-500 border-none hover:shadow-cyan-500/50 hover:scale-105 active:scale-95">
-          <span class="w-1.5 h-1.5 rounded-full bg-white mr-1.5 animate-pulse"></span>
-          Square Off All
-        </button>
-
-        <div class="h-8 w-px bg-white/10 mx-2"></div>
-
-        <button onclick="openCred()" class="btn btn-secondary px-3" title="Settings">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
-            </path>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z">
-            </path>
-          </svg>
-        </button>
-        <button onclick="openCfg()" class="btn btn-primary">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-          </svg>
-          Configure Alert
-        </button>
-        <button onclick="killSwitch()" class="btn btn-danger px-3" title="Emergency Kill Switch">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-          </svg>
-        </button>
       </div>
     </div>
   </nav>
 
-  <!-- Main Content -->
+  <!-- Main Content (Stacked) -->
   <main class="max-w-7xl mx-auto px-6 py-28 pb-12 space-y-12">
 
     <!-- Alerts Section -->
@@ -375,8 +386,7 @@
         <div class="flex items-center gap-4">
           <div class="p-2.5 rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/20">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z">
-              </path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
           <div>
@@ -416,18 +426,16 @@
             <thead>
               <tr>
                 <th>Alert Name</th>
-                <th>Time (IST)</th>
+                <th>Time</th>
                 <th>Symbol</th>
                 <th class="text-right">LTP</th>
                 <th class="text-right">% Change</th>
-                <th class="text-right">Buy Vol</th>
-                <th class="text-right">Sell Vol</th>
                 <th class="text-center">Status</th>
               </tr>
             </thead>
             <tbody id="alertsBody">
               <tr>
-                <td colspan="10" class="text-center py-12 text-slate-500 italic">Waiting for incoming signals...</td>
+                <td colspan="6" class="text-center py-12 text-slate-500 italic">Waiting for incoming signals...</td>
               </tr>
             </tbody>
           </table>
@@ -500,7 +508,6 @@
         </div>
       </div>
     </section>
-
   </main>
 
   <!-- ================= MODALS ================= -->
@@ -520,19 +527,29 @@
             </svg>
           </button>
 
-          <div class="flex items-center gap-4 mb-6">
-            <div
-              class="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/20">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z">
-                </path>
-              </svg>
+          <div class="flex items-center gap-4 mb-8">
+            <div class="relative group">
+              <div
+                class="absolute -inset-1 bg-gradient-to-r from-blue-500 to-cyan-400 rounded-xl blur opacity-40 group-hover:opacity-60 transition duration-200">
+              </div>
+              <div
+                class="relative w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center text-white shadow-xl shadow-blue-500/30">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z">
+                  </path>
+                </svg>
+              </div>
             </div>
             <div>
-              <h3 class="text-xl font-bold text-white tracking-tight">Connect Broker</h3>
-              <div class="flex items-center gap-1.5 text-xs font-medium text-emerald-400">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Encrypted & Secure
+              <h3 class="text-2xl font-bold text-white tracking-tight font-[Outfit]">Connect Broker</h3>
+              <div class="flex items-center gap-2 text-xs font-semibold text-emerald-400 mt-1">
+                <span class="relative flex h-2 w-2">
+                  <span
+                    class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                Encrypted & Secure
               </div>
             </div>
           </div>
@@ -542,18 +559,18 @@
             trading execution.
           </p>
 
-          <div class="space-y-5">
+          <div class="space-y-6">
             <div class="group">
               <label
                 class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1 group-focus-within:text-cyan-400 transition-colors">API
                 Key</label>
               <div class="relative">
                 <input id="api_key" type="password"
-                  class="w-full bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all placeholder:text-slate-700"
+                  class="w-full bg-[#151b2d] border border-white/5 text-white text-sm rounded-xl px-4 py-3.5 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all placeholder:text-slate-700 shadow-inner"
                   placeholder="Enter API Key ••••••••••••">
                 <button type="button" onclick="toggleVisibility('api_key')"
-                  class="absolute inset-y-0 right-0 px-3 flex items-center text-slate-500 hover:text-cyan-400 transition-colors">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  class="absolute inset-y-0 right-0 px-4 flex items-center text-slate-600 hover:text-cyan-400 transition-colors">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                       d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z">
                     </path>
@@ -568,11 +585,11 @@
                 Secret</label>
               <div class="relative">
                 <input id="api_secret" type="password"
-                  class="w-full bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all placeholder:text-slate-700"
+                  class="w-full bg-[#151b2d] border border-white/5 text-white text-sm rounded-xl px-4 py-3.5 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all placeholder:text-slate-700 shadow-inner"
                   placeholder="Enter API Secret ••••••••••••">
                 <button type="button" onclick="toggleVisibility('api_secret')"
-                  class="absolute inset-y-0 right-0 px-3 flex items-center text-slate-500 hover:text-cyan-400 transition-colors">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  class="absolute inset-y-0 right-0 px-4 flex items-center text-slate-600 hover:text-cyan-400 transition-colors">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                       d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -584,10 +601,11 @@
             </div>
           </div>
 
-          <div class="flex flex-col gap-3 mt-8">
+          <div class="flex flex-col gap-3 mt-10">
             <button onclick="saveCred()"
-              class="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              class="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2 group">
+              <svg class="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor"
+                viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4">
                 </path>
@@ -595,7 +613,7 @@
               Save Secure Credentials
             </button>
             <button onclick="connectZerodha()"
-              class="w-full py-3 rounded-xl bg-white/5 text-slate-300 font-semibold border border-white/5 hover:bg-white/10 hover:text-white transition-all flex items-center justify-center gap-2">
+              class="w-full py-3.5 rounded-xl bg-transparent text-slate-400 font-semibold border border-slate-700/50 hover:border-slate-500 hover:text-white transition-all flex items-center justify-center gap-2 hover:bg-white/5">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1">
@@ -748,6 +766,24 @@
           </div>
         </div>
       </div>
+
+    </div>
+  </div>
+
+  <!-- Confirmation Modal -->
+  <div id="confirmModal" class="fixed inset-0 z-[150] hidden">
+    <div class="absolute inset-0 bg-black/90 backdrop-blur-md transition-opacity"></div>
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm p-4">
+      <div class="relative bg-slate-900 border border-white/10 rounded-2xl p-6 shadow-2xl animate-enter">
+        <h3 class="text-lg font-bold text-white mb-2 font-[Outfit]">Confirm Action</h3>
+        <p id="confirmMsg" class="text-slate-400 text-sm mb-6 leading-relaxed">Are you sure?</p>
+        <div class="flex gap-3 justify-end">
+          <button id="btnCancel" class="btn btn-secondary text-xs px-4">Cancel</button>
+          <button id="btnConfirm"
+            class="btn btn-primary bg-gradient-to-r from-amber-500 to-orange-600 border-amber-500/20 text-xs px-4 shadow-amber-900/20">Yes,
+            Proceed</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -791,12 +827,25 @@
     function openCred() { document.getElementById("credModal").classList.remove("hidden"); }
     function closeCred() { document.getElementById("credModal").classList.add("hidden"); }
 
-    /* --- Config Modal --- */
-    function openCfg() {
-      document.getElementById("cfgModal").classList.remove("hidden");
-      // Auto-fetch top sectors to show user what's currently hot
-      fetchTopSectors();
-      loadCfgList();
+    function openConfirm(msg) {
+      return new Promise((resolve) => {
+        const el = document.getElementById("confirmModal");
+        const msgEl = document.getElementById("confirmMsg");
+        const btnYes = document.getElementById("btnConfirm");
+        const btnNo = document.getElementById("btnCancel");
+
+        msgEl.textContent = msg;
+        el.classList.remove("hidden");
+
+        const cleanup = () => {
+          el.classList.add("hidden");
+          btnYes.onclick = null;
+          btnNo.onclick = null;
+        };
+
+        btnYes.onclick = () => { cleanup(); resolve(true); };
+        btnNo.onclick = () => { cleanup(); resolve(false); };
+      });
     }
 
     async function fetchTopSectors() {
@@ -827,6 +876,10 @@
     document.getElementById("cfg_topn").addEventListener("keyup", fetchTopSectors);
 
     function closeCfg() { document.getElementById("cfgModal").classList.add("hidden"); }
+    function openCfg() {
+      document.getElementById("cfgModal").classList.remove("hidden");
+      loadCfgList();
+    }
 
     /* --- API Calls with new Toast --- */
     async function saveCred() {
@@ -858,6 +911,17 @@
         } else {
           throw new Error('Disconnected');
         }
+
+        // Kill Switch Status
+        const kb = document.getElementById("killBtn");
+        if (r.kill_switch) {
+          kb.innerHTML = "🛑 RESUME TRADING";
+          kb.className = "hidden sm:flex btn px-4 py-1.5 rounded-lg bg-rose-600 text-white border border-rose-400 shadow-[0_0_15px_rgba(225,29,72,0.5)] animate-pulse font-bold text-xs uppercase tracking-wider";
+        } else {
+          kb.innerHTML = "⚠️ KILL SWITCH";
+          kb.className = "hidden sm:flex btn px-4 py-1.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-all font-bold text-xs uppercase tracking-wider";
+        }
+
       } catch {
         el.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block mr-1.5 animate-pulse"></span> KITE: DISCONNECTED`;
         el.className = "px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20 shadow-[0_0_10px_rgba(244,63,94,0.2)] transition-all";
@@ -865,9 +929,26 @@
     }
 
     async function killSwitch() {
-      if (!confirm("⚠️ EMERGENCY: STOP ALL TRADING?")) return;
-      await fetch("/api/kill-switch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: USER_ID, enabled: true }) });
-      toast("KILL SWITCH ACTIVATED", 'error');
+      const btn = document.getElementById("killBtn");
+      const isKill = btn.innerText.includes("RESUME");
+
+      const msg = isKill
+        ? "🟢 RESUME TRADING? This will re-enable order placement."
+        : "⚠️ EMERGENCY: STOP TRADING? This will BLOCK all new entries.";
+
+      if (!confirm(msg)) return;
+
+      // Toggle (if isKill is true, we want enabled=false)
+      const enabled = !isKill;
+
+      await fetch("/api/kill-switch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: USER_ID, enabled: enabled })
+      });
+
+      toast(enabled ? "KILL SWITCH ACTIVATED" : "TRADING RESUMED", enabled ? 'error' : 'success');
+      refreshZ();
     }
 
     /* --- Auto Square Off --- */
@@ -1022,70 +1103,59 @@
     }
 
     function renderAlerts() {
-      const tbody = document.getElementById("alertsBody");
-      document.getElementById("alertCount").innerText = `${ALERTS.length} Alerts`;
+      const tbody = document.getElementById('alertsBody');
+      if (!tbody) return;
 
       if (ALERTS.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10" class="text-center py-12 text-slate-500 italic">Waiting for incoming signals...</td></tr>`;
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-12 text-slate-500 italic">Waiting for incoming signals...</td></tr>';
         return;
       }
 
-      tbody.innerHTML = ALERTS.slice(0, 100).map(row => {
-        return (row.result || []).map(res => {
-          const timeStr = new Date(row.time).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-          const statusClass =
-            res.status === 'ENTERED' ? 'text-emerald-400 bg-emerald-500/10' :
-              res.status === 'SKIPPED' ? 'text-yellow-400 bg-yellow-500/10' :
-                'text-rose-400 bg-rose-500/10';
+      tbody.innerHTML = ALERTS.slice(0, 100).map(a => {
+        const timeStr = new Date(a.time).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const timeClass = "text-slate-500";
+        const symbolClass = "font-bold text-slate-200";
 
-          // Look up active position data
-          // Look up active position data for fallback LTP
-          const p = POS_MAP[res.symbol];
+        // Generate rows for each result in the alert
+        return (a.result || []).map(r => {
+          const pChange = parseFloat(r.pct || 0);
+          const pClass = pChange > 0 ? "text-emerald-400" : pChange < 0 ? "text-rose-400" : "text-slate-400";
 
-          let initialLtp = "--";
-          let initialPct = "--";
-          let initialLtpClass = "text-slate-300";
-          let initialPctClass = "text-slate-400";
-
-          if (p) {
-            const l = Number(p.ltp || 0);
-            if (l > 0) {
-              initialLtp = l.toFixed(2);
-              // If we had close price in Position we could calc pct, but LTP is better than nothing
-              // Try to infer color from entry price if close is missing?
-              const ent = Number(p.entry_price || 0);
-              if (ent > 0) {
-                const pct = (l - ent) / ent * 100;
-                // initialPct = pct.toFixed(2) + "%"; // accurate relative to ENTRY, not close
-                // For now just show LTP
-                if (l > ent) initialLtpClass = "text-emerald-400";
-                if (l < ent) initialLtpClass = "text-rose-400";
-              }
+          // Helper for status class (using dark variants)
+          const getStatusClass = (status) => {
+            switch (status) {
+              case 'ENTERED': return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+              case 'SKIPPED': return 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20';
+              case 'ERROR': return 'bg-rose-500/10 text-rose-400 border border-rose-500/20';
+              default: return 'bg-slate-800 text-slate-400 border border-slate-700';
             }
-          }
-
-          const sid = safeId(res.symbol);
+          };
 
           return `
-             <tr class="group text-sm">
-               <td class="font-medium text-white">${row.alert_name}</td>
-               <td class="text-slate-400 font-mono text-xs">${timeStr}</td>
-               <td class="font-bold text-cyan-300 font-mono text-left">${res.symbol}</td>
-               
-               <td class="text-right font-mono ${initialLtpClass}" data-symbol="${res.symbol}" data-field="ltp">${initialLtp}</td>
-               <td class="text-right font-mono ${initialPctClass}" data-symbol="${res.symbol}" data-field="pct">${initialPct}</td>
-               
-               <td class="text-right font-mono text-slate-400" data-symbol="${res.symbol}" data-field="buyvol">-</td>
-               <td class="text-right font-mono text-slate-400" data-symbol="${res.symbol}" data-field="sellvol">-</td>
-               
-               <td class="text-center">
-                 <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold tracking-wide ${statusClass}">
-                   ${res.status}
-                 </span>
-                 ${res.reason ? `<div class="text-[10px] text-slate-500 mt-0.5 max-w-[120px] truncate mx-auto" title="${res.reason}">${res.reason}</div>` : ''}
-               </td>
-             </tr>
-           `;
+            <tr class="hover:bg-white/5 transition-colors border-b border-white/5 last:border-0">
+                <td class="px-4 py-3 whitespace-nowrap">
+                    <span class="px-3 py-1.5 rounded-lg text-sm font-bold text-blue-200 tracking-wide">
+                        ${a.alert_name}
+                    </span>
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-xs ${timeClass} font-mono">${timeStr}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm ${symbolClass}">${r.symbol}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-right font-mono text-sm text-slate-300" data-symbol="${r.symbol}" data-field="ltp">
+                    ${r.ltp ? r.ltp.toFixed(2) : '--'}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-right font-mono text-sm font-bold ${pClass}" data-symbol="${r.symbol}" data-field="pct">
+                    ${r.pct ? r.pct.toFixed(2) + '%' : '--'}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-center">
+                    <span class="px-2 py-1 rounded-full text-[10px] font-bold ${getStatusClass(r.status)}">
+                        ${r.status}
+                    </span>
+                    ${r.status === 'ENTERED' && r.side
+              ? `<div class="text-[9px] font-bold mt-0.5 uppercase ${r.side === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}">${r.side}</div>`
+              : (r.reason ? `<div class="text-[9px] text-slate-500 mt-0.5 max-w-[120px] truncate mx-auto" title="${r.reason}">${r.reason}</div>` : '')}
+                </td>
+            </tr>
+            `;
         }).join('');
       }).join('');
     }
@@ -1093,19 +1163,15 @@
     async function loadAlerts() {
       try {
         const d = await (await fetch(`/api/alerts?user_id=${USER_ID}&limit=50`)).json();
-        // Correct time parsing logic from original script
         ALERTS.length = 0;
         (d.alerts || []).forEach(a => {
-          // Enhanced time parsing
           let t = 0;
           if (a.ts_ms) {
             t = Number(a.ts_ms);
           } else if (a.time) {
-            t = Date.parse(a.time); // Should handle ISO 8601 with 'T' correctly
+            t = Date.parse(a.time);
           }
-
           if (!t || isNaN(t)) t = Date.now();
-
           ALERTS.push({
             alert_name: a.alert_name,
             time: t,
@@ -1115,25 +1181,37 @@
         });
         ALERTS.sort((a, b) => b.time - a.time);
         renderAlerts();
+
+        const allSyms = new Set();
+        ALERTS.forEach(a => {
+          (a.result || []).forEach(r => { if (r.symbol) allSyms.add(r.symbol); });
+          if (Array.isArray(a.symbols)) a.symbols.forEach(s => allSyms.add(s));
+        });
+
+        if (allSyms.size > 0) {
+          const symList = Array.from(allSyms);
+          const BATCH_SIZE = 50;
+          for (let i = 0; i < symList.length; i += BATCH_SIZE) {
+            const batch = symList.slice(i, i + BATCH_SIZE);
+            fetch("/api/subscribe-symbols", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ user_id: USER_ID, symbols: batch })
+            }).catch(e => console.error("Auto-sub batch failed", e));
+          }
+        }
       } catch (e) { console.error(e); }
     }
 
     async function refreshPositions() {
       const d = await (await fetch(`/api/positions?user_id=${USER_ID}`)).json();
       const pos = d.positions || [];
-
-      // Filter to show only OPEN positions in Active Positions table
       const activePos = pos.filter(p => p.status === 'OPEN');
-
-      // Sort alphabetically by symbol
       activePos.sort((a, b) => a.symbol.localeCompare(b.symbol));
-
-      // Update global map with ALL positions (for tick updates)
       POS_MAP = {};
       pos.forEach(p => { POS_MAP[p.symbol] = p; });
-
-      renderPositions(activePos); // Only render OPEN positions
-      renderAlerts(); // Reflect updates in alerts
+      renderPositions(activePos);
+      renderAlerts();
     }
 
     function renderPositions(rows) {
@@ -1149,24 +1227,21 @@
       if (countEl) countEl.textContent = `${rows ? rows.length : 0} Active`;
 
       if (pnlEl) {
-        // Updated large PnL display
         const val = totalPnl.toFixed(2);
-        const colorClass = totalPnl > 0 ? "text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.4)]" : totalPnl < 0 ? "text-rose-400 drop-shadow-[0_0_8px_rgba(251,113,133,0.4)]" : "text-slate-300";
-
-        pnlEl.className = `text-2xl font-bold font-mono tracking-tight px-4 py-1 rounded-xl border border-white/5 bg-black/20 backdrop-blur-sm shadow-inner transition-colors duration-300`;
-        pnlEl.innerHTML = `<span class="text-slate-500 text-xs font-sans uppercase tracking-widest font-bold mr-2 mb-1 inline-block align-middle">Net PnL</span><span class="${colorClass}">${val}</span>`;
+        const colorClass = totalPnl > 0 ? "text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.4)]" : totalPnl < 0 ? "text-rose-400 drop-shadow-[0_0_8px_rgba(251,113,133,0.4)]" : "text-white";
+        pnlEl.className = `flex items-center gap-4 px-5 py-2.5 bg-[#0B1221] border border-white/5 rounded-2xl shadow-inner`;
+        pnlEl.innerHTML = `<span class="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">NET PNL</span><span class="text-2xl font-mono font-bold tracking-tighter leading-none ${colorClass}">${val}</span>`;
       }
 
       if (!rows || rows.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="13" class="text-center py-12 text-slate-500 italic">No active positions currently.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="13" class="text-center py-12 text-slate-400 italic">No active positions currently.</td></tr>`;
         return;
       }
 
       tbody.innerHTML = rows.map(p => {
         const pnlClass = p.pnl > 0 ? 'text-emerald-400' : p.pnl < 0 ? 'text-rose-400' : 'text-slate-400';
-        const sideClass = p.side === 'BUY' ? 'text-emerald-400 bg-emerald-500/10' : 'text-rose-400 bg-rose-500/10';
+        const sideClass = p.side === 'BUY' ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : 'text-rose-400 bg-rose-500/10 border border-rose-500/20';
 
-        // Calculate dynamic TSL value
         let tslPrice = 0.0;
         const tslPct = Number(p.tsl_pct || 0);
         if (tslPct > 0) {
@@ -1177,27 +1252,20 @@
           }
         }
 
-        // Fallback for display if 0 (e.g. no ticks yet)
         const tslDisplay = tslPrice > 0 ? tslPrice.toFixed(2) : '-';
 
         return `
-          <tr class="group text-sm">
-            <td class="font-mono">
+          <tr class="group text-sm hover:bg-white/5 border-b border-white/5">
+            <td class="font-mono px-3 py-3">
               <div class="flex items-center">
-                ${p.sector ? `<span class="px-2 py-0.5 mr-2 text-[11px] font-bold rounded bg-sky-200 text-blue-900 border border-sky-300 shadow-sm whitespace-nowrap tracking-wide">${p.sector}</span>` : ''}
-                <span class="font-bold text-white text-sm">${p.symbol}</span>
+                ${p.sector ? `<span class="px-2 py-0.5 mr-2 text-[10px] font-bold rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 shadow-sm whitespace-nowrap tracking-wide">${p.sector}</span>` : ''}
+                <span class="font-bold text-slate-200 text-sm">${p.symbol}</span>
               </div>
             </td>
-            <td class="text-xs text-slate-400">${p.alert_name}</td>
-            <td class="text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${sideClass}">${p.side}</span></td>
-            <td class="text-center text-xs text-slate-300">${p.product}</td>
-            <td class="text-right font-mono text-slate-300">${p.qty}</td>
-            <td class="text-right font-mono text-slate-400">${Number(p.entry_price).toFixed(2)}</td>
-            <td class="text-right font-mono text-emerald-400/80">${Number(p.target_price || 0).toFixed(2)}</td>
-            <td class="text-right font-mono text-rose-400/80">${Number(p.sl_price || 0).toFixed(2)}</td>
-            <td class="text-right font-mono text-blue-300">${tslDisplay}</td>
-            <td class="text-right font-mono text-cyan-200" id="pltp-${p.symbol}">${Number(p.ltp || 0).toFixed(2)}</td>
-            <td class="text-right font-mono font-bold ${pnlClass}" id="ppnl-${p.symbol}">${Number(p.pnl || 0).toFixed(2)}</td>
+            <td class="text-center px-3 py-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${sideClass}">${p.side}</span></td>
+            <td class="text-right px-3 py-3 font-mono text-blue-300">${tslDisplay}</td>
+            <td class="text-right px-3 py-3 font-mono text-cyan-200" id="pltp-${p.symbol}">${Number(p.ltp || 0).toFixed(2)}</td>
+            <td class="text-right px-3 py-3 font-mono font-bold ${pnlClass}" id="ppnl-${p.symbol}">${Number(p.pnl || 0).toFixed(2)}</td>
             <td class="text-center text-xs text-slate-400">
               ${p.status}
               ${p.exit_reason ? `<div class="text-[9px] opacity-70">${p.exit_reason}</div>` : ''}
@@ -1207,7 +1275,7 @@
                 Square Off
               </button>
             </td>
-          </tr>
+          </tr >
         `;
       }).join('');
     }
@@ -1226,7 +1294,7 @@
     }
 
     async function exitAllPositions() {
-      if (!confirm("⚠️ ARE YOU SURE? This will close ALL open positions immediately.")) return;
+      if (!await openConfirm("⚠️ ARE YOU SURE? This will close ALL open positions immediately.")) return;
       try {
         const r = await fetch("/api/position/exit-all", {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -1234,12 +1302,12 @@
         });
         const d = await r.json();
         toast(`Triggered exit for ${d.count} positions`);
-        setTimeout(refreshPositions, 1000);
+        // Auto refresh happens via WS, but manual sync is good backup
       } catch (e) { toast("Failed to exit all", 'error'); }
     }
 
     async function clearAllAlerts() {
-      if (!confirm("⚠️ Delete ALL alert history? This cannot be undone.")) return;
+      if (!await openConfirm("⚠️ Delete ALL alert history? This cannot be undone.")) return;
       try {
         const r = await fetch(`/api/alerts?user_id=${USER_ID}`, {
           method: "DELETE"
@@ -1251,6 +1319,7 @@
       } catch (e) { toast(e, 'error'); }
     }
 
+    /* --- WebSocket --- */
     /* --- WebSocket --- */
     function startWS() {
       const el = document.getElementById("wsbadge");
@@ -1271,6 +1340,7 @@
       WS.onmessage = (ev) => {
         try {
           const d = JSON.parse(ev.data);
+          // console.log("Incoming WS:", d); // Keep for debug if needed
 
           if (d.type === 'tick') {
             const s = d.symbol;
@@ -1293,14 +1363,6 @@
               const pctColor = parseFloat(pctChange) > 0 ? 'text-emerald-400' : parseFloat(pctChange) < 0 ? 'text-rose-400' : 'text-slate-400';
               el.className = `text-right font-mono ${pctColor}`;
             });
-
-            // Update Volume (Buy/Sell)
-            const tbq = Number(d.tbq || 0);
-            const tsq = Number(d.tsq || 0);
-            const fmtVol = (n) => n.toLocaleString('en-IN');
-
-            document.querySelectorAll(`[data-symbol="${s}"][data-field="buyvol"]`).forEach(el => el.innerText = fmtVol(tbq));
-            document.querySelectorAll(`[data-symbol="${s}"][data-field="sellvol"]`).forEach(el => el.innerText = fmtVol(tsq));
 
             // Update TSL in Alert Table dynamically from POS_MAP
             const p = POS_MAP[s]; // Lookup from map by raw symbol
