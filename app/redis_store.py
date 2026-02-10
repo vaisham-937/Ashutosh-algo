@@ -5,9 +5,12 @@ import json
 import re
 import time
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import redis.asyncio as redis
+
+if TYPE_CHECKING:
+    from app.crypto import EncryptionManager
 
 try:
     import pytz  # type: ignore
@@ -95,6 +98,10 @@ def k_creds(user_id: int) -> str:
 
 def k_access(user_id: int) -> str:
     return f"kite:access:{int(user_id)}"
+
+
+def k_creds_pattern() -> str:
+    return "kite:creds:*"
 
 
 def k_kill(user_id: int) -> str:
@@ -198,10 +205,11 @@ class RedisStore:
     - Alerts history (LIST): alerts:{user_id}
     """
 
-    def __init__(self, redis_url: str) -> None:
+    def __init__(self, redis_url: str, encryption_manager: Optional['EncryptionManager'] = None) -> None:
         self.redis = redis.from_url(redis_url, decode_responses=True)
         self._sha_lock: Optional[str] = None
         self._sha_limit: Optional[str] = None
+        self.encryption = encryption_manager
 
     async def close(self) -> None:
         try:
@@ -286,20 +294,37 @@ class RedisStore:
             await self.redis.delete(k_kill(user_id))
 
     # =========================
-    # Credentials (SET JSON)
+    # Credentials (SET JSON) - Encrypted
     # =========================
     async def save_credentials(self, user_id: int, api_key: str, api_secret: str) -> None:
-        payload = json.dumps({"api_key": (api_key or "").strip(), "api_secret": (api_secret or "").strip()})
+        """Save credentials with encryption if enabled."""
+        api_key = (api_key or "").strip()
+        api_secret = (api_secret or "").strip()
+        
+        # Encrypt credentials if encryption manager is available
+        if self.encryption and self.encryption.is_enabled():
+            api_key, api_secret = self.encryption.encrypt_credentials(api_key, api_secret)
+        
+        payload = json.dumps({"api_key": api_key, "api_secret": api_secret})
         await self.redis.set(k_creds(user_id), payload)
 
     async def get_credentials(self, user_id: int) -> Tuple[Optional[str], Optional[str]]:
+        """Get credentials with decryption if enabled."""
         raw = await self.redis.get(k_creds(user_id))
         if not raw:
             return None, None
         try:
             d = json.loads(raw)
-            return (d.get("api_key") or None), (d.get("api_secret") or None)
-        except Exception:
+            api_key = d.get("api_key") or None
+            api_secret = d.get("api_secret") or None
+            
+            # Decrypt credentials if encryption manager is available
+            if self.encryption and self.encryption.is_enabled() and api_key and api_secret:
+                api_key, api_secret = self.encryption.decrypt_credentials(api_key, api_secret)
+            
+            return api_key, api_secret
+        except Exception as e:
+            print(f"Error loading credentials: {e}")
             return None, None
 
     async def load_credentials(self, user_id: int) -> Dict[str, str]:
@@ -310,13 +335,28 @@ class RedisStore:
     # Access token
     # =========================
     async def save_access_token(self, user_id: int, access_token: str) -> None:
-        await self.redis.set(k_access(user_id), (access_token or "").strip())
+        """Save access token with 24 hour expiration"""
+        await self.redis.setex(k_access(user_id), 86400, (access_token or "").strip())
 
     async def load_access_token(self, user_id: int) -> str:
         return str(await self.redis.get(k_access(user_id)) or "")
 
     async def clear_access_token(self, user_id: int) -> None:
         await self.redis.delete(k_access(user_id))
+
+    async def list_all_user_ids(self) -> List[int]:
+        """Discover all user IDs who have credentials saved."""
+        pattern = k_creds_pattern()
+        keys = await self.redis.keys(pattern)
+        ids = []
+        for k in keys:
+            try:
+                # k is "kite:creds:123"
+                parts = k.split(":")
+                ids.append(int(parts[-1]))
+            except (ValueError, IndexError):
+                continue
+        return list(set(ids))
 
     # =========================
     # Alert config (hash)
@@ -446,16 +486,44 @@ class RedisStore:
     # =========================
     async def save_alert(self, user_id: int, alert_data: Dict[str, Any]) -> None:
         """
-        Store alert in Redis list, keep last 200 alerts, expire daily.
+        Upsert alert in Redis list (by name and time).
+        Keeps last 200 alerts, expire daily.
         """
         key = k_alerts(user_id)
-
+        
         payload = dict(alert_data or {})
         payload.setdefault("type", "alert")
-        payload.setdefault("time", now_ist().isoformat())
+        # Ensure we use a stable format for time if not provided
+        if not payload.get("time"):
+            payload["time"] = now_ist().strftime("%Y-%m-%d %H:%M:%S").replace(" ", "T")
 
-        await self.redis.lpush(key, json.dumps(payload))
-        await self.redis.ltrim(key, 0, 199)
+        # Try to find and update existing record first (prevent duplicates from re-pushes)
+        raw_alerts = await self.redis.lrange(key, 0, -1)
+        target_name = payload.get("alert_name")
+        target_time = payload.get("time")
+        
+        updated = False
+        new_list = []
+        
+        for raw in (raw_alerts or []):
+            try:
+                a = json.loads(raw)
+                if a.get("alert_name") == target_name and a.get("time") == target_time:
+                    # Update existing record with any new results or fields
+                    a.update(payload)
+                    updated = True
+                new_list.append(json.dumps(a))
+            except Exception:
+                new_list.append(raw)
+                
+        if updated:
+            await self.redis.delete(key)
+            if new_list:
+                await self.redis.rpush(key, *new_list)
+        else:
+            # New alert, push to front
+            await self.redis.lpush(key, json.dumps(payload))
+            await self.redis.ltrim(key, 0, 199)
 
         ttl = seconds_until_next_ist_day(extra_grace_sec=6 * 60 * 60)
         await self.redis.expire(key, int(ttl))
@@ -470,6 +538,60 @@ class RedisStore:
             except Exception:
                 continue
         return out
+
+    async def delete_alerts(self, user_id: int) -> None:
+        """Clear all alerts for a user"""
+        key = k_alerts(user_id)
+        await self.redis.delete(key)
+
+    async def update_alert_status(self, user_id: int, alert_time: str, symbol: str, new_status: str, reason: str = "", alert_name: str = "") -> bool:
+        """
+        Find an alert in history by time (and optionally name) and update its result status for a specific symbol.
+        """
+        if not alert_time:
+            return False
+            
+        key = k_alerts(user_id)
+        # Fetch all alerts (capped at 200 in save_alert)
+        raw_alerts = await self.redis.lrange(key, 0, -1)
+        if not raw_alerts:
+            return False
+            
+        updated = False
+        new_list = []
+        
+        target_sym = norm_symbol(symbol)
+        target_name = normalize_alert_name(alert_name) if alert_name else None
+        
+        for raw in raw_alerts:
+            try:
+                a = json.loads(raw)
+                # Matches alert by exact time string and name (if provided)
+                time_match = a.get("time") == alert_time
+                name_match = True
+                if target_name:
+                    name_match = normalize_alert_name(a.get("alert_name", "")) == target_name
+                
+                if time_match and name_match:
+                    res_list = a.get("result") or []
+                    for r in res_list:
+                        if norm_symbol(r.get("symbol", "")) == target_sym:
+                            r["status"] = str(new_status)
+                            if reason:
+                                r["reason"] = str(reason)
+                            updated = True
+                new_list.append(json.dumps(a))
+            except Exception:
+                new_list.append(raw)
+                
+        if updated:
+            # Atomic update via pipeline might be safer, but alerts are small
+            await self.redis.delete(key)
+            if new_list:
+                await self.redis.rpush(key, *new_list)
+            return True
+            
+        return False
 
     # =========================
     # Auto Square Off
@@ -494,4 +616,108 @@ class RedisStore:
         key = k_auto_sq_off_ran(user_id, ymd)
         ttl = seconds_until_next_ist_day(extra_grace_sec=3600)
         await self.redis.setex(key, int(ttl), "1")
+
+    # =========================
+    # Authentication - User Management
+    # =========================
+    async def save_user(self, user: Any) -> None:
+        """Save user to Redis with email as key"""
+        import hashlib
+        # Generate user_id from email hash
+        user_id = int(hashlib.md5(user.email.encode()).hexdigest()[:8], 16) % 100000
+        
+        # Save user data
+        key = f"user:email:{user.email}"
+        await self.redis.set(key, json.dumps(user.to_dict()))
+        
+        # Save email -> user_id mapping
+        await self.redis.set(f"user:id:{user.email}", str(user_id))
+    
+    async def get_user_by_email(self, email: str) -> Optional[Any]:
+        """Get user by email"""
+        from .models import User
+        key = f"user:email:{email}"
+        raw = await self.redis.get(key)
+        if not raw:
+            return None
+        try:
+            return User.from_dict(json.loads(raw))
+        except Exception:
+            return None
+    
+    async def get_user_id_by_email(self, email: str) -> int:
+        """Get user_id from email"""
+        import hashlib
+        raw = await self.redis.get(f"user:id:{email}")
+        if raw:
+            return int(raw)
+        # Generate consistent user_id from email hash
+        return int(hashlib.md5(email.encode()).hexdigest()[:8], 16) % 100000
+    
+    # =========================
+    # Authentication - OTP Management
+    # =========================
+    async def save_otp(self, email: str, otp: Any) -> None:
+        """Save OTP with 5 minute expiration"""
+        key = f"otp:{email}"
+        await self.redis.setex(key, 300, json.dumps(otp.to_dict()))  # 5 minutes
+    
+    async def get_otp(self, email: str) -> Optional[Any]:
+        """Get OTP for email"""
+        from .models import OTP
+        key = f"otp:{email}"
+        raw = await self.redis.get(key)
+        if not raw:
+            return None
+        try:
+            return OTP.from_dict(json.loads(raw))
+        except Exception:
+            return None
+    
+    async def delete_otp(self, email: str) -> None:
+        """Delete OTP after successful verification"""
+        key = f"otp:{email}"
+        await self.redis.delete(key)
+    
+    async def check_otp_rate_limit(self, email: str) -> bool:
+        """Check if user can request another OTP (max 3 per hour)"""
+        key = f"otp:ratelimit:{email}"
+        count = await self.redis.get(key)
+        
+        if count and int(count) >= 3:
+            return False
+        
+        # Increment counter
+        if not count:
+            await self.redis.setex(key, 3600, "1")  # 1 hour
+        else:
+            await self.redis.incr(key)
+        
+        return True
+    
+    # =========================
+    # Authentication - Session Management
+    # =========================
+    async def save_session(self, token: str, session: Any) -> None:
+        """Save session with 24 hour expiration"""
+        key = f"session:{token}"
+        await self.redis.setex(key, 86400, json.dumps(session.to_dict()))  # 24 hours
+    
+    async def get_session(self, token: str) -> Optional[Any]:
+        """Get session by token"""
+        from .models import Session
+        key = f"session:{token}"
+        raw = await self.redis.get(key)
+        if not raw:
+            return None
+        try:
+            return Session.from_dict(json.loads(raw))
+        except Exception:
+            return None
+    
+    async def delete_session(self, token: str) -> bool:
+        """Delete session (logout)"""
+        key = f"session:{token}"
+        result = await self.redis.delete(key)
+        return bool(result)
 

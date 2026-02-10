@@ -247,9 +247,10 @@ class Position:
     highest: float = 0.0
     lowest: float = 0.0
 
-    status: Literal["OPEN", "EXITING", "CLOSED", "REJECTED", "ERROR"] = "OPEN"
+    status: Literal["OPEN", "EXIT_CONDITIONS_MET", "EXITING", "CLOSED", "REJECTED", "ERROR"] = "OPEN"
     exit_reason: str = ""
     exit_order_id: str = ""
+    alert_time: str = ""
     created_ts: float = 0.0
     updated_ts: float = 0.0
 
@@ -683,7 +684,7 @@ class TradeEngine:
                     continue
 
                 status = str(row.get("status") or "OPEN").upper()
-                if status not in ("OPEN", "EXITING"):
+                if status not in ("OPEN", "EXIT_CONDITIONS_MET", "EXITING"):
                     continue
 
                 data = {k: row.get(k) for k in allowed if k in row}
@@ -751,7 +752,7 @@ class TradeEngine:
     # =========================
     # Chartink alert processing
     # =========================
-    async def on_chartink_alert(self, alert_name: str, symbols: List[str]) -> List[Dict[str, Any]]:
+    async def on_chartink_alert(self, alert_name: str, symbols: List[str], ts: str = "") -> List[Dict[str, Any]]:
         out: List[Dict[str, Any]] = []
 
         alert_key = normalize_alert_key(alert_name)
@@ -819,7 +820,7 @@ class TradeEngine:
             sym2 = _safe_symbol(sym)
             if not sym2:
                 continue
-            r = await self._try_enter(sym2, alert_key, cfg)
+            r = await self._try_enter(sym2, alert_key, cfg, alert_time=ts)
             
             # Inject latest tick data into result for immediate UI feedback
             tick = self.ticks.get(sym2, {})
@@ -879,7 +880,7 @@ class TradeEngine:
 
         return out
 
-    async def _try_enter(self, symbol: str, alert_key: str, cfg: AlertConfig) -> Dict[str, Any]:
+    async def _try_enter(self, symbol: str, alert_key: str, cfg: AlertConfig, alert_time: str = "") -> Dict[str, Any]:
         symbol = _safe_symbol(symbol)
 
         if not self._sector_allows(symbol, cfg):
@@ -950,6 +951,7 @@ class TradeEngine:
                 product=product,
                 qty=int(qty),
                 entry_price=float(ltp),
+                alert_time=str(alert_time),
                 created_ts=time.time(),
                 updated_ts=time.time(),
             )
@@ -1258,7 +1260,7 @@ class TradeEngine:
             title = _bold(_cyan("📈 MONITOR")) + " " + sym_tag + sec_tag + " " + _dim(f"alert={pos.alert_name}")
 
             line1 = (
-                f"{_bold(_cyan(symbol))}  {_fmt_side(pos.side)} {pos.qty} {pos.product}  "
+                f"{_bold(_cyan(symbol))}  {_fmt_side(pos.side)} {pos.qty} qty {pos.product}  "
                 f"entry={pos.entry_price:.2f}  ltp={pos.ltp:.2f}  pnl={_fmt_pnl(pos.pnl)}"
             )
             line2 = (
@@ -1297,6 +1299,18 @@ class TradeEngine:
         if reason:
             if not self._exit_signal_sent.get(symbol):
                 self._exit_signal_sent[symbol] = True
+                
+                # ✅ UPDATE STATUS - Mark as EXIT_CONDITIONS_MET
+                pos.status = "EXIT_CONDITIONS_MET"
+                pos.exit_reason = reason
+                pos.updated_ts = time.time()
+                
+                # Save to Redis so dashboard shows the status
+                try:
+                    await self.store.upsert_position(self.user_id, symbol, pos.to_public())
+                except Exception as e:
+                    log.debug("REDIS_UPDATE_FAIL | symbol=%s err=%s", symbol, e)
+                
                 log.info(
                     "\n%s\n%s",
                     _bold(_magenta("✅ EXIT_CONDITION_MET")),
@@ -1323,6 +1337,12 @@ class TradeEngine:
 
             if not self._exit_inflight.get(symbol):
                 self._exit_inflight[symbol] = True
+                # Set status to EXITING before placing exit order
+                pos.status = "EXITING"
+                try:
+                    await self.store.upsert_position(self.user_id, symbol, pos.to_public())
+                except Exception:
+                    pass
                 asyncio.create_task(self._exit_position(symbol, reason), name=f"exit_{symbol}")
             else:
                 log.debug("⏳ EXIT_DEBOUNCE | user=%s symbol=%s reason=%s", self.user_id, symbol, reason)
@@ -1521,8 +1541,8 @@ class TradeEngine:
 
         try:
             pos = self.positions.get(symbol)
-            if not pos or pos.status != "OPEN":
-                log.debug("↩️ EXIT_SKIP | user=%s symbol=%s reason=%s (not OPEN)", self.user_id, symbol, reason)
+            if not pos or pos.status not in ("OPEN", "EXITING", "EXIT_CONDITIONS_MET"):
+                log.debug("↩️ EXIT_SKIP | user=%s symbol=%s reason=%s (not OPEN/EXITING)", self.user_id, symbol, reason)
                 return
 
             exit_side = "SELL" if pos.side == "BUY" else "BUY"
@@ -1593,6 +1613,17 @@ class TradeEngine:
                             del self.positions[symbol]
                         log.info("🗑️ POSITION_DELETED | user=%s symbol=%s (CLOSED)", self.user_id, symbol)
                         
+                        # ✅ Update alert status in history
+                        if pos.alert_time:
+                            await self.store.update_alert_status(
+                                self.user_id, 
+                                pos.alert_time, 
+                                symbol, 
+                                new_status=reason.replace("_", " "), # e.g. "TARGET_HIT" -> "TARGET HIT"
+                                reason=reason,
+                                alert_name=pos.alert_name
+                            )
+
                         # ✅ Trigger UI refresh
                         if self.broadcast_cb:
                             self.broadcast_cb(self.user_id, {"type": "pos_refresh"})
@@ -1649,6 +1680,8 @@ class TradeEngine:
         symbols = [s for s, p in self.positions.items() if p.status == "OPEN"]
         
         if not symbols:
+            log.warning("⏰ EXIT_ALL_SKIP | user=%s reason=%s | No OPEN positions found in memory. Total tracked=%s", 
+                        self.user_id, reason, len(self.positions))
             return 0
 
         # 🛑 KILL SWITCH CHECK

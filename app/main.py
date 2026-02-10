@@ -25,7 +25,42 @@ from .chartink_client import (
 from .trade_engine import TradeEngine
 from .websocket_manager import WebSocketManager
 from .stock_sector import STOCK_INDEX_MAPPING
+from .auth import AuthService
+from .middleware import AuthMiddleware, get_current_user, SecurityHeadersMiddleware
 import logging
+
+# Security Imports
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from .security_config import (
+    ALLOWED_HOSTS, 
+    get_csp_header_value, 
+    RATE_LIMIT_AUTH_OTP, 
+    RATE_LIMIT_AUTH_VERIFY, 
+    RATE_LIMIT_LOGIN
+)
+
+# Initialize Limiter
+limiter = Limiter(key_func=get_remote_address)
+
+
+# Load environment variables
+try:
+    from dotenv import load_dotenv
+    load_dotenv()  # Load from .env file
+except ImportError:
+    pass  # dotenv not installed, use system env vars
+
+# Import encryption module
+try:
+    from .crypto import init_encryption
+    ENCRYPTION_AVAILABLE = True
+except ImportError:
+    ENCRYPTION_AVAILABLE = False
+    print("⚠️  Encryption module not available. Install cryptography: pip install cryptography")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -53,17 +88,43 @@ logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
 REDIS_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
 
 app = FastAPI(title="AlgoEdge Ultra-Low Latency")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# 1. Trusted Host Middleware (Direct IP Block)
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=ALLOWED_HOSTS 
+)
+
+# 2. Security Headers (XSS, CSP, etc.)
+app.add_middleware(
+    SecurityHeadersMiddleware,
+    csp_header=get_csp_header_value()
+)
+
+# 3. SlowAPI Middleware (Rate Limiting)
+app.add_middleware(SlowAPIMiddleware)
+
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # change in production
+    allow_origins=[
+    "https://clicktrade.live",
+    "https://www.clicktrade.live"],  # change in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Initialize encryption manager (will be set in startup)
+encryption_manager = None
+
 ws_mgr = WebSocketManager()
-store = RedisStore(REDIS_URL)
+# store will be initialized in startup after encryption is ready
+store = None
+# auth_service will be initialized after store is ready
+auth_service = None
 
 # Engines per user
 ENGINE: Dict[int, TradeEngine] = {}
@@ -573,44 +634,91 @@ async def schedule_auto_squareoff():
 # -----------------------------
 @app.on_event("startup")
 async def startup():
-    global APP_LOOP
+    global APP_LOOP, encryption_manager, store, auth_service
     APP_LOOP = asyncio.get_running_loop()
     ws_mgr.set_loop(APP_LOOP)
 
+    # Initialize encryption
+    if ENCRYPTION_AVAILABLE:
+        try:
+            encryption_manager = init_encryption()
+        except Exception as e:
+            print(f"⚠️  Encryption initialization failed: {e}")
+            encryption_manager = None
+    
+    # Initialize Redis store with encryption
+    store = RedisStore(REDIS_URL, encryption_manager)
     await store.init_scripts()
+    
+    # Initialize auth service
+    auth_service = AuthService(store)
+    print("✅ Authentication service initialized")
     
     # Start Scheduler
     asyncio.create_task(schedule_auto_squareoff())
 
-    # Auto-start if already logged in
+    # Auto-start for all users found in Redis
     try:
-        # ✅ Auto-enable Auto Square Off if not set (Default: ON)
-        if not await store.is_auto_sq_off_enabled(1):
-            await store.set_auto_sq_off_enabled(1, True)
-            print("⚙️ [STARTUP] Auto Square Off DEFAULT -> ENABLED")
+        all_uids = await store.list_all_user_ids()
+        print(f"🔄 [STARTUP] Found {len(all_uids)} users. Rehydrating...")
 
-        ok = await is_session_valid(1)
-        if ok:
-            async with INSTR_LOCK:
-                if not SYMBOL_TOKEN:
-                    await build_symbol_token_map_from_kite(1)
+        for uid in all_uids:
+            try:
+                # ✅ Auto-enable Auto Square Off if not set (Default: ON)
+                if not await store.is_auto_sq_off_enabled(uid):
+                    await store.set_auto_sq_off_enabled(uid, True)
 
-            base_symbols = list(STOCK_INDEX_MAPPING.keys())
-            await subscribe_symbols_for_user(1, base_symbols)
-            await start_kite_ticker(1)
+                ok = await is_session_valid(uid)
+                if ok:
+                    print(f"🚀 [STARTUP] Re-connecting User {uid}...")
+                    async with INSTR_LOCK:
+                        # Build per-user symbol token map if needed
+                        # (Note: SYMBOL_TOKEN is global, but let's ensure it's loaded)
+                        if not SYMBOL_TOKEN:
+                            await build_symbol_token_map_from_kite(uid)
 
-            eng = await ensure_engine(1)
-            await eng.configure_kite()
+                    base_symbols = list(STOCK_INDEX_MAPPING.keys())
+                    await subscribe_symbols_for_user(uid, base_symbols)
+                    await start_kite_ticker(uid)
+
+                    eng = await ensure_engine(uid)
+                    await eng.configure_kite()
+                    print(f"✅ [STARTUP] User {uid} Rehydrated")
+                else:
+                    print(f"⚠️ [STARTUP] Skipping User {uid} (Session invalid/expired)")
+            except Exception as ue:
+                print(f"❌ [STARTUP] Failed to rehydrate User {uid}: {ue}")
+
     except Exception as e:
-        print("[startup] auto-start failed:", e)
+        print("[startup] user listing/rehydration failed:", e)
+
+
+
+# -----------------------------
+# Authentication Endpoints
+# -----------------------------
+@app.get("/", response_class=RedirectResponse)
+@limiter.limit(RATE_LIMIT_LOGIN)
+async def root(request: Request):
+    """Redirect to dashboard (Auth managed by Cloudflare)"""
+    return RedirectResponse(url="/dashboard")
+
+
+# Auth endpoints removed as requested (Cloudflare Zero Trust managed)
 
 
 # -----------------------------
 # Dashboard
 # -----------------------------
 @app.get("/dashboard", response_class=HTMLResponse)
-async def dashboard(user_id: int = 1) -> str:
-    return _read_dashboard_template(user_id=user_id, username=f"user{int(user_id)}")
+async def dashboard_page(request: Request):
+    """
+    Serve the main trading dashboard.
+    Auth is bypassed here as it is handled by Cloudflare Zero Trust.
+    Defaulting to User ID 1.
+    """
+    # Simply render for default user (Ashutosh)
+    return _read_dashboard_template(user_id=1, username="Ashutosh")
 
 
 # -----------------------------
@@ -636,7 +744,7 @@ async def connect_zerodha(user_id: int = 1):
     api_key = (creds.get("api_key") or "").strip()
     api_secret = (creds.get("api_secret") or "").strip()
     if not api_key or not api_secret:
-        return RedirectResponse(url=f"/dashboard?user_id={user_id}")
+        return RedirectResponse(url=f"/dashboard?user_id={user_id}&error=missing_creds")
 
     kite = KiteConnect(api_key=api_key)
     login_url = kite.login_url()
@@ -644,8 +752,24 @@ async def connect_zerodha(user_id: int = 1):
 
 
 @app.get("/zerodha/callback")
-async def zerodha_callback(request: Request, user_id: int = 1):
-    user_id = int(user_id)
+async def zerodha_callback(request: Request, user_id: Optional[int] = None):
+    # 1) Try user_id from query params
+    if user_id is None:
+        try:
+             uid_q = request.query_params.get("user_id")
+             if uid_q: user_id = int(uid_q)
+        except: pass
+        
+    # 2) Fallback to session cookie (crucial for preserving context after redirect)
+    if user_id is None:
+        token = request.cookies.get("session_token")
+        if token and auth_service:
+            session_data = await auth_service.verify_session(token)
+            if session_data:
+                user_id = session_data.get("user_id")
+                
+    # 3) Final fallback
+    user_id = int(user_id or 1)
 
     creds = await store.load_credentials(user_id)
     api_key = (creds.get("api_key") or "").strip()
@@ -680,7 +804,6 @@ async def zerodha_callback(request: Request, user_id: int = 1):
 
     # Start / restart ticker
     await start_kite_ticker(user_id)
-
     # Ensure engine has latest access token
     eng = await ensure_engine(user_id)
     await eng.configure_kite()
@@ -689,11 +812,21 @@ async def zerodha_callback(request: Request, user_id: int = 1):
 
 
 @app.get("/api/zerodha-status")
-async def zerodha_status(user_id: int = 1) -> Dict[str, Any]:
+async def zerodha_status(user_id: int = 1):
     user_id = int(user_id)
-    ok = await is_session_valid(user_id)
+
+    session_ok = await is_session_valid(user_id)
     kill = await store.is_kill(user_id)
-    return {"connected": ok, "kill_switch": kill}
+
+    connected = bool(
+        session_ok
+        and KT_CONNECTED
+        and KT_USER_ID == user_id
+    )
+    return {
+        "connected": connected,
+        "kill_switch": kill
+    }
 
 
 # -----------------------------
@@ -704,18 +837,6 @@ async def list_alert_config(user_id: int = 1) -> Dict[str, Any]:
     user_id = int(user_id)
     cfg = await store.list_alert_configs(user_id)
     return {"configs": cfg}
-
-
-@app.delete("/api/alerts")
-async def delete_all_alerts(user_id: int = 1) -> Dict[str, Any]:
-    """Clear all alert history for a user"""
-    user_id = int(user_id)
-    try:
-        await store.r.delete(f"alerts:{user_id}")
-        return {"status": "ok", "message": "All alerts cleared"}
-    except Exception as e:
-        return {"error": str(e)}
-
 
 
 @app.post("/api/alert-config")
@@ -771,23 +892,6 @@ async def delete_alert_config_api(payload: Dict[str, Any]) -> Dict[str, Any]:
 # -----------------------------
 # Position Management
 # -----------------------------
-@app.post("/api/position/squareoff")
-async def squareoff_position(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Square off a single position"""
-    user_id = int(payload.get("user_id", 1))
-    symbol = str(payload.get("symbol", "")).strip()
-    
-    if not symbol:
-        return {"error": "SYMBOL_REQUIRED"}
-    
-    eng = await ensure_engine(user_id)
-    try:
-        await eng._exit_position(symbol, reason="MANUAL_SQUAREOFF")
-        return {"status": "ok", "symbol": symbol, "message": "Exit order sent"}
-    except Exception as e:
-        return {"error": str(e)}
-
-
 @app.post("/api/position/exit-all")
 async def exit_all_positions_api(payload: Dict[str, Any]) -> Dict[str, Any]:
     """Exit all open positions"""
@@ -847,15 +951,31 @@ async def chartink_webhook(request: Request, user_id: int = 1) -> Dict[str, Any]
     # Subscribe symbols for ticks (non-blocking)
     asyncio.create_task(subscribe_symbols_for_user(user_id, symbols))
 
-    # Process alert -> orders
+    # 1) INITIALIZE Alert History IMMEDIATELY (Prevents race with trade motor)
+    initial_res = [{"symbol": s, "status": "RECEIVED"} for s in symbols]
+    await store.save_alert(user_id, {
+        "alert_name": alert_name,
+        "time": ts,
+        "symbols": symbols,
+        "result": initial_res
+    })
+
+    # 2) Process alert -> orders
     try:
-        res = await eng.on_chartink_alert(alert_name, symbols)
+        res = await eng.on_chartink_alert(alert_name, symbols, ts=ts)
     except Exception as e:
         print(f"🔥 [WEBHOOK_PANIC] Critical Trade Engine Error: {e}")
         await store.set_kill(user_id, True)
         res = [{"symbol": s, "status": "ERROR", "reason": f"CRITICAL_FAIL:{e}"} for s in symbols]
 
+    # 3) UPDATE Alert History with Entry Results
+    await store.save_alert(user_id, {
+        "alert_name": alert_name,
+        "time": ts,
+        "result": res
+    })
 
+    # Alert data for UI
     alert_data = {
         "type": "alert",
         "alert_name": alert_name,
@@ -864,9 +984,6 @@ async def chartink_webhook(request: Request, user_id: int = 1) -> Dict[str, Any]
         "result": res,
     }
     print(f"📥 Chartink alert_data → {alert_data}")
-
-    # Store alert history FIRST so it's ready when UI refetches
-    await store.save_alert(user_id, alert_data)
 
     # Push to UI (which triggers reload)
     await ws_mgr.broadcast(user_id, alert_data)
@@ -917,6 +1034,13 @@ async def api_alerts(user_id: int = 1, limit: int = 100) -> Dict[str, Any]:
     return {"alerts": alerts}
 
 
+@app.delete("/api/alerts")
+async def api_clear_alerts(user_id: int = 1) -> Dict[str, Any]:
+    user_id = int(user_id)
+    await store.delete_alerts(user_id)
+    return {"ok": True, "message": "All alerts cleared"}
+
+
 # -----------------------------
 # Positions
 # -----------------------------
@@ -938,21 +1062,28 @@ async def api_squareoff(payload: Dict[str, Any]) -> Dict[str, Any]:
     reason = str(payload.get("reason", "MANUAL") or "MANUAL").strip().upper()
 
     if not symbol:
-        raise HTTPException(status_code=400, detail={"error": "BAD_SYMBOL", "raw": raw_symbol})
+        return {"error": f"Invalid symbol: {raw_symbol}"}
 
     eng = await ensure_engine(user_id)
 
     print(f"🖱️ [SQUAREOFF_CLICK] user={user_id} raw='{raw_symbol}' sym='{symbol}' reason={reason}")
     ok = await is_session_valid(user_id)
     if not ok:
-        raise HTTPException(status_code=400, detail={"error": "ZERODHA_NOT_CONNECTED"})
+        return {"error": "Zerodha not connected. Please login first."}
 
     # ✅ Works even after restart (memory -> Zerodha fallback)
     r = await eng.manual_squareoff_zerodha(symbol, reason=reason)
 
     print(f"🧾 [SQUAREOFF_RESULT] user={user_id} sym={symbol} -> {r}")
+    
+    # Convert response format to match frontend expectations
+    if r.get("status") == "ERROR":
+        return {"error": r.get("reason", "Square off failed")}
+    elif r.get("status") == "NOT_FOUND":
+        return {"error": f"No open position found for {symbol}"}
+    
     ws_mgr.broadcast_nowait(user_id, {"type": "pos_refresh"})
-    return r
+    return {"ok": True, "message": f"Exit order sent for {symbol}"}
 
 
 # -----------------------------

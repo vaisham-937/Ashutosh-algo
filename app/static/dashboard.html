@@ -13,13 +13,13 @@
     rel="stylesheet">
   <style>
     :root {
-      /* DARK THEME VARIABLES */
-      --bg: #030712;
-      --cyan: #22d3ee;
+      /* DARK TEAL THEME (User Preference) */
+      --bg: #3e3f3f;
+      --cyan: #56af09;
       --cyan-dim: rgba(34, 211, 238, 0.1);
-      --glass: rgba(17, 24, 39, 0.7);
-      --glass-border: rgba(255, 255, 255, 0.08);
-      --text-main: #f3f4f6;
+      --glass: rgba(0, 0, 0, 0.2);
+      --glass-border: rgba(255, 255, 255, 0.1);
+      --text-main: #f1f5f9;
       --text-muted: #94a3b8;
     }
 
@@ -27,13 +27,13 @@
       background-color: var(--bg);
       color: var(--text-main);
       font-family: 'Inter', system-ui, sans-serif;
-      /* Premium Deep Mesh Gradient Animated */
+      /* Dark mesh with subtle light color */
       background-image:
-        radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.15) 0px, transparent 50%),
-        radial-gradient(at 100% 0%, rgba(124, 58, 237, 0.15) 0px, transparent 50%),
-        radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.1) 0px, transparent 50%),
-        radial-gradient(at 0% 100%, rgba(16, 185, 129, 0.1) 0px, transparent 50%);
-      background-size: 150% 150%;
+        radial-gradient(at 0% 0%, rgba(34, 211, 238, 0.12) 0px, transparent 42%),
+        radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.1) 0px, transparent 45%),
+        radial-gradient(at 50% 50%, rgba(34, 211, 238, 0.06) 0px, transparent 55%),
+        radial-gradient(at 0% 100%, rgba(16, 185, 129, 0.12) 0px, transparent 42%);
+      background-size: 100% 100%;
       background-attachment: fixed;
       animation: aurora 20s ease infinite alternate;
       overflow-x: hidden;
@@ -67,12 +67,12 @@
     }
 
     ::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.1);
+      background: rgba(148, 163, 184, 0.5);
       border-radius: 99px;
     }
 
     ::-webkit-scrollbar-thumb:hover {
-      background: rgba(255, 255, 255, 0.2);
+      background: rgba(100, 116, 139, 0.8);
     }
 
     /* Animations */
@@ -115,10 +115,99 @@
       }
     }
 
+    @keyframes status-glow {
+
+      0%,
+      100% {
+        box-shadow: 0 0 5px rgba(234, 179, 8, 0.2);
+        opacity: 0.8;
+      }
+
+      50% {
+        box-shadow: 0 0 15px rgba(234, 179, 8, 0.5);
+        opacity: 1;
+      }
+    }
+
+    @keyframes error-glow {
+
+      0%,
+      100% {
+        box-shadow: 0 0 5px rgba(244, 63, 94, 0.2);
+      }
+
+      50% {
+        box-shadow: 0 0 15px rgba(244, 63, 94, 0.6);
+      }
+    }
+
+    .badge-highlight-exiting {
+      animation: status-glow 1.5s ease-in-out infinite;
+      background: rgba(234, 179, 8, 0.2) !important;
+      color: #fde047 !important;
+      border: 1px solid rgba(234, 179, 8, 0.4) !important;
+      text-shadow: 0 0 8px rgba(234, 179, 8, 0.4);
+    }
+
+    .badge-highlight-error {
+      animation: error-glow 1s ease-in-out infinite;
+      background: rgba(244, 63, 94, 0.2) !important;
+      color: #fda4af !important;
+      border: 1px solid rgba(244, 63, 94, 0.4) !important;
+    }
+
+    @keyframes target-glow {
+
+      0%,
+      100% {
+        box-shadow: 0 0 5px rgba(16, 185, 129, 0.3);
+      }
+
+      50% {
+        box-shadow: 0 0 20px rgba(16, 185, 129, 0.7);
+      }
+    }
+
+    @keyframes sl-glow {
+
+      0%,
+      100% {
+        box-shadow: 0 0 5px rgba(244, 63, 94, 0.3);
+      }
+
+      50% {
+        box-shadow: 0 0 20px rgba(244, 63, 94, 0.7);
+      }
+    }
+
+    .badge-highlight-target {
+      animation: target-glow 1.5s ease-in-out infinite;
+      background: rgba(16, 185, 129, 0.2) !important;
+      color: #6ee7b7 !important;
+      border: 1px solid rgba(16, 185, 129, 0.5) !important;
+      text-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+    }
+
+    .badge-highlight-sl {
+      animation: sl-glow 1.5s ease-in-out infinite;
+      background: rgba(244, 63, 94, 0.2) !important;
+      color: #fda4af !important;
+      border: 1px solid rgba(244, 63, 94, 0.5) !important;
+      text-shadow: 0 0 8px rgba(244, 63, 94, 0.4);
+    }
+
+    .badge-highlight-completed {
+      background: rgba(34, 211, 238, 0.15) !important;
+      color: #7dd3fc !important;
+      border: 1px solid rgba(34, 211, 238, 0.4) !important;
+      box-shadow: 0 0 10px rgba(34, 211, 238, 0.2);
+    }
+
     /* Stars */
     .star {
       position: absolute;
-      background: white;
+      background: #0f172a;
+      /* Dark stars for light sky */
       border-radius: 50%;
       opacity: 0;
       animation: twinkle var(--duration) ease-in-out infinite;
@@ -217,6 +306,18 @@
       border-color: rgba(255, 255, 255, 0.1);
     }
 
+    .btn-light {
+      background: rgb(2, 33, 46);
+      color: #64748b;
+      border: 1px solid #e2e8f0;
+    }
+
+    .btn-light:hover {
+      background: #023e64;
+      color: #0f172a;
+      border-color: #cbd5e1;
+    }
+
     .btn-danger {
       background: rgba(239, 68, 68, 0.1);
       color: #fca5a5;
@@ -229,11 +330,14 @@
       border-color: rgba(239, 68, 68, 0.4);
     }
 
-    /* Tables */
+    /* Tables - Dark Theme Override */
     .table-container {
       border-radius: 1rem;
       overflow: hidden;
-      border: 1px solid var(--glass-border);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(15, 23, 42, 0.6);
+      /* Dark Slate with opacity */
+      backdrop-filter: blur(12px);
     }
 
     table {
@@ -242,9 +346,10 @@
     }
 
     th {
-      background: rgba(0, 0, 0, 0.3);
-      color: #94a3b8;
-      font-weight: 600;
+      background: rgba(0, 0, 0, 0.2);
+      color: #f6f5f9;
+      /* Slate 400 */
+      font-weight: 700;
       text-transform: uppercase;
       font-size: 0.75rem;
       letter-spacing: 0.05em;
@@ -254,17 +359,14 @@
 
     td {
       padding: 1rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-      color: #cbd5e1;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      color: #f1f5f9;
+      /* Slate 100 */
       font-size: 0.9rem;
     }
 
     tr:last-child td {
       border-bottom: none;
-    }
-
-    tr:hover td {
-      background: rgba(255, 255, 255, 0.02);
     }
 
     /* Inputs */
@@ -289,6 +391,69 @@
     .font-mono {
       font-family: 'JetBrains Mono', 'Fira Code', monospace;
     }
+
+    /* Global overrides for light theme adaptation */
+    .text-white {
+      color: var(--text-main) !important;
+    }
+
+    /* Revert text-white for buttons/badges which usually have dark backgrounds */
+    .btn,
+    .badge,
+    .bg-emerald-500,
+    .bg-rose-500,
+    .bg-blue-500,
+    .bg-cyan-500 {
+      color: white !important;
+      /* Force white text on buttons */
+    }
+
+    .btn .text-white,
+    .badge .text-white {
+      color: white !important;
+    }
+
+    /* Fix text colors inside dark tables */
+    .table-container .text-white {
+      color: white !important;
+    }
+
+    .table-container .text-slate-400 {
+      color: #94a3b8 !important;
+    }
+
+    .table-container .text-slate-500 {
+      color: #cbd5e1 !important;
+    }
+
+    /* Fix text colors inside dark modals */
+    #credModal .text-white,
+    #cfgModal .text-white {
+      color: white !important;
+    }
+
+    #credModal .text-slate-400,
+    #cfgModal .text-slate-400 {
+      color: #94a3b8 !important;
+    }
+
+    #credModal .text-slate-500,
+    #cfgModal .text-slate-500 {
+      color: #cbd5e1 !important;
+    }
+
+    /* Fix text colors inside Dark Navbar */
+    nav .text-white {
+      color: white !important;
+    }
+
+    nav .text-slate-200 {
+      color: #e2e8f0 !important;
+    }
+
+    nav .text-slate-400 {
+      color: #94a3b8 !important;
+    }
   </style>
 </head>
 
@@ -297,10 +462,9 @@
   <!-- Stars Container -->
   <div id="stars" class="fixed inset-0 pointer-events-none z-0"></div>
 
-  <!-- Navbar -->
-  <nav class="fixed top-0 w-full z-50 glass border-b border-b-white/5 shadow-2xl">
+  <nav class="fixed top-0 w-full z-50 bg-[#0f172a]/95 backdrop-blur-xl border-b border-white/10 shadow-lg">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex items-center justify-between h-16">
+      <div class="flex items-center justify-between h-20">
         <!-- Logo -->
         <div class="flex items-center gap-3">
           <div class="relative group">
@@ -321,25 +485,28 @@
         </div>
 
         <!-- Right Side -->
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 lg:gap-5">
           <!-- User ID Pill -->
-          <div class="hidden md:flex items-center px-3 py-1.5 rounded-full bg-white/5 border border-white/10 gap-2">
-            <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-            <span class="text-xs font-bold text-slate-300">User ID : {{ USER_ID }}</span>
+          <div
+            class="hidden lg:flex items-center px-4 py-1.5 rounded-full bg-white/5 border border-white/10 gap-2.5 transition-all duration-300 hover:bg-white/10 hover:border-white/20 select-none">
+            <div
+              class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0 shadow-[0_0_8px_rgba(16,185,129,0.5)]">
+            </div>
+            <span class="text-xs font-bold text-slate-200 tracking-wide">USER ID: {{ USER_ID }}</span>
           </div>
 
           <!-- Kite Status -->
           <div id="zbadge"
-            class="hidden md:flex items-center px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 gap-2">
+            class="hidden md:flex items-center px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 gap-2">
             <div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-            <span class="text-[10px] font-bold tracking-wider uppercase">KITE: CONNECTED</span>
+            <span class="text-[10px] font-bold tracking-widest uppercase">KITE: CONNECTED</span>
           </div>
 
           <!-- WS Status -->
           <div id="wsbadge"
-            class="hidden md:flex items-center px-3 py-1.5 rounded-full bg-white/5 border border-white/10 gap-2">
+            class="hidden md:flex items-center px-4 py-1.5 rounded-full bg-slate-100 border border-slate-200 gap-2">
             <div class="w-1.5 h-1.5 rounded-full bg-slate-500"></div>
-            <span class="text-[10px] font-bold text-slate-500 tracking-wider uppercase">WS: CONNECTING</span>
+            <span class="text-[10px] font-bold text-slate-500 tracking-widest uppercase">WS: LIVE</span>
           </div>
 
           <!-- Kill Switch -->
@@ -360,25 +527,32 @@
             + Configure Alert
           </button>
 
-          <!-- Settings Icon/Feed -->
-          <!-- Settings Icon/Feed -->
-          <button onclick="openCred()" title="Broker Credentials"
-            class="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition border border-white/10">
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
-              </path>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-            </svg>
-          </button>
+          <!-- Action Tiles (Settings & Logout) -->
+          <div class="flex items-center gap-2 border-l border-white/10 pl-4">
+
+            <!-- Settings Tile -->
+            <button onclick="openCred()" title="Broker Credentials"
+              class="p-2.5 rounded-lg bg-white/5 hover:bg-cyan-500/20 text-slate-400 hover:text-cyan-400 border border-white/5 hover:border-cyan-500/30 transition-all duration-300 group">
+              <svg class="w-5 h-5 group-hover:rotate-90 transition-transform duration-500" fill="none"
+                viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
+                </path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+              </svg>
+            </button>
+
+            <!-- Logout Tile -->
+            <!-- Logout removed -->
+          </div>
         </div>
       </div>
     </div>
   </nav>
 
   <!-- Main Content (Stacked) -->
-  <main class="max-w-7xl mx-auto px-6 py-28 pb-12 space-y-12">
+  <main class="max-w-7xl mx-auto px-6 py-36 pb-12 space-y-12">
 
     <!-- Alerts Section -->
     <section class="animate-enter">
@@ -390,17 +564,17 @@
             </svg>
           </div>
           <div>
-            <h2 class="text-2xl font-bold text-white">Live Signals</h2>
+            <h2 class="text-3xl font-extrabold text-slate-1000">Live Chartink Signals</h2>
             <div class="flex items-center gap-2 mt-1">
               <span id="alertCount"
-                class="text-xs font-semibold text-orange-300 bg-orange-500/10 px-2 py-0.5 rounded border border-orange-500/10">0
+                class="text-xs font-semibold text-orange-600 bg-orange-100 px-2 py-1 rounded border border-orange-200">0
                 Alerts</span>
-              <span class="text-xs text-slate-500">Incoming from Chartink</span>
+              <span class="text-xs text-white-600">Incoming from Chartink</span>
             </div>
           </div>
         </div>
         <div class="flex gap-2">
-          <button onclick="loadAlerts()" class="btn btn-secondary text-xs">
+          <button onclick="loadAlerts()" class="btn btn-light text-xs">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
@@ -409,7 +583,7 @@
             Refresh
           </button>
           <button onclick="clearAllAlerts()"
-            class="btn px-3 py-1.5 text-xs bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-colors">
+            class="btn px-3 py-1.5 text-xs bg-rose-400/10 text-rose-400 border border-rose-400/20 hover:bg-rose-400/20 transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
@@ -420,7 +594,7 @@
         </div>
       </div>
 
-      <div class="glass table-container">
+      <div class="table-container">
         <div class="overflow-x-auto">
           <table>
             <thead>
@@ -435,7 +609,7 @@
             </thead>
             <tbody id="alertsBody">
               <tr>
-                <td colspan="6" class="text-center py-12 text-slate-500 italic">Waiting for incoming signals...</td>
+                <td colspan="6" class="text-center py-12 text-slate-400 italic">Waiting for incoming signals...</td>
               </tr>
             </tbody>
           </table>
@@ -456,9 +630,9 @@
             </svg>
           </div>
           <div>
-            <h2 class="text-2xl font-bold text-white tracking-tight">Active Positions</h2>
+            <h2 class="text-3xl font-bold text-slate-1000 tracking-tight">Active Positions</h2>
             <div class="flex items-center gap-4 mt-2">
-              <span id="posCount" class="badge bg-cyan-500/10 text-cyan-300 border-cyan-500/20 px-3 py-1 text-xs">0
+              <span id="posCount" class="badge bg-cyan-500/10 text-cyan-300 border-cyan-500/20 px-3 py-2 text-xs">0
                 Active</span>
               <div id="totalPnlBadge"
                 class="text-xl font-bold font-mono tracking-tight px-4 py-1.5 rounded-lg border border-white/5 bg-slate-800/50 shadow-inner">
@@ -469,7 +643,7 @@
           </div>
         </div>
         <div class="flex items-center gap-3">
-          <button onclick="refreshPositions()" class="btn btn-secondary px-3 py-2 text-xs">
+          <button onclick="refreshPositions()" class="btn btn-light px-3 py-2 text-xs">
             <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
@@ -479,24 +653,24 @@
           </button>
         </div>
       </div>
-      <div class="glass table-container">
+      <div class="table-container">
         <div class="overflow-x-auto">
           <table>
             <thead>
-              <tr>
-                <th>Symbol</th>
-                <th>Strategy</th>
-                <th class="text-center">Side</th>
-                <th class="text-center">Type</th>
-                <th class="text-right">Qty</th>
-                <th class="text-right">Entry</th>
-                <th class="text-right">Target</th>
-                <th class="text-right">StopLoss</th>
-                <th class="text-right">TSL</th>
-                <th class="text-right">LTP</th>
-                <th class="text-right">P&L</th>
-                <th class="text-center">State</th>
-                <th class="text-center">Actions</th>
+              <tr class="text-[10px] uppercase tracking-[0.15em] text-slate-500 border-b border-white/5">
+                <th class="px-4 py-4 text-left font-black">Symbol</th>
+                <th class="px-2 py-4 text-left font-black">Strategy</th>
+                <th class="px-2 py-4 text-center font-black">Side</th>
+                <th class="px-2 py-4 text-center font-black">Type</th>
+                <th class="px-2 py-4 text-right font-black">Qty</th>
+                <th class="px-2 py-4 text-right font-black">Entry</th>
+                <th class="px-2 py-4 text-right font-black text-emerald-300/70">Target</th>
+                <th class="px-2 py-4 text-right font-black text-rose-300/70">StopLoss</th>
+                <th class="px-2 py-4 text-right font-black text-amber-300/70">TSL</th>
+                <th class="px-2 py-4 text-right font-black text-slate-300/70">LTP</th>
+                <th class="px-2 py-4 text-right font-black">P&L</th>
+                <th class="px-2 py-4 text-center font-black">State</th>
+                <th class="px-4 py-4 text-center font-black">Actions</th>
               </tr>
             </thead>
             <tbody id="posBody">
@@ -518,8 +692,8 @@
     <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md p-1">
       <!-- Gradient border wrapper -->
       <div
-        class="relative rounded-2xl bg-gradient-to-b from-cyan-500/30 to-blue-600/10 p-[1px] shadow-2xl shadow-cyan-900/40 animate-enter">
-        <div class="glass rounded-2xl p-8 border-0 bg-[#0B1121]">
+        class="relative rounded-2xl bg-gradient-to-b from-cyan-500/20 to-blue-600/5 p-[1px] shadow-2xl shadow-cyan-900/10 animate-enter">
+        <div class="rounded-2xl p-8 border-0 bg-[#0f172a]">
           <button onclick="closeCred()"
             class="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -566,7 +740,7 @@
                 Key</label>
               <div class="relative">
                 <input id="api_key" type="password"
-                  class="w-full bg-[#151b2d] border border-white/5 text-white text-sm rounded-xl px-4 py-3.5 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all placeholder:text-slate-700 shadow-inner"
+                  class="w-full bg-[#1e293b] border border-white/10 text-white text-sm rounded-xl px-4 py-3.5 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all placeholder:text-slate-500 shadow-inner"
                   placeholder="Enter API Key ••••••••••••">
                 <button type="button" onclick="toggleVisibility('api_key')"
                   class="absolute inset-y-0 right-0 px-4 flex items-center text-slate-600 hover:text-cyan-400 transition-colors">
@@ -585,7 +759,7 @@
                 Secret</label>
               <div class="relative">
                 <input id="api_secret" type="password"
-                  class="w-full bg-[#151b2d] border border-white/5 text-white text-sm rounded-xl px-4 py-3.5 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all placeholder:text-slate-700 shadow-inner"
+                  class="w-full bg-[#1e293b] border border-white/10 text-white text-sm rounded-xl px-4 py-3.5 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all placeholder:text-slate-500 shadow-inner"
                   placeholder="Enter API Secret ••••••••••••">
                 <button type="button" onclick="toggleVisibility('api_secret')"
                   class="absolute inset-y-0 right-0 px-4 flex items-center text-slate-600 hover:text-cyan-400 transition-colors">
@@ -621,6 +795,7 @@
               </svg>
               Log in to Kite
             </button>
+
           </div>
         </div>
       </div>
@@ -631,17 +806,36 @@
   <div id="cfgModal" class="fixed inset-0 z-[100] hidden overflow-y-auto">
     <div class="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onclick="closeCfg()"></div>
     <div class="relative min-h-screen flex items-center justify-center p-4">
-      <div class="glass rounded-2xl p-8 border border-white/10 shadow-2xl w-full max-w-2xl relative animate-enter my-8">
-        <button onclick="closeCfg()" class="absolute top-6 right-6 text-slate-400 hover:text-white">✕</button>
+      <div
+        class="rounded-2xl p-6 border border-white/10 shadow-2xl w-full max-w-xl relative animate-enter my-8 bg-[#0f172a]">
+        <button onclick="closeCfg()" class="absolute top-5 right-5 text-slate-400 hover:text-white">✕</button>
 
-        <div class="flex items-center justify-between mb-8">
+        <div class="flex items-center justify-between mb-4">
           <div>
-            <h3 class="text-xl font-bold text-white">Strategy Configuration</h3>
-            <p class="text-sm text-slate-400">Define parameters for your Chartink alerts.</p>
+            <h3 class="text-lg font-bold text-white">Strategy Configuration</h3>
+            <p class="text-xs text-slate-400">Define parameters for your Chartink alerts.</p>
           </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="col-span-2">
+            <label class="block text-xs font-semibold text-emerald-400 uppercase mb-1.5">Your Webhook URL</label>
+            <div class="relative group/url">
+              <input id="webhook_url"
+                class="input-field text-xs font-mono text-slate-400 bg-black/40 cursor-pointer hover:text-emerald-300 transition-colors"
+                readonly onclick="this.select(); copyWebhookUrl()">
+              <div
+                class="absolute right-2 top-1.5 p-1.5 pointer-events-none text-slate-500 group-hover/url:text-emerald-400 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z">
+                  </path>
+                </svg>
+              </div>
+            </div>
+            <p class="text-[10px] text-slate-500 mt-1">Paste this into Chartink Alert Webhook</p>
+          </div>
+
           <div class="col-span-2 md:col-span-1">
             <label class="block text-xs font-semibold text-cyan-400 uppercase mb-1.5">Alert Name</label>
             <input id="cfg_alert" class="input-field" placeholder="e.g. BULLISH_BREAKOUT">
@@ -670,7 +864,7 @@
             </select>
           </div>
 
-          <div class="col-span-2 grid grid-cols-3 gap-6">
+          <div class="col-span-2 grid grid-cols-3 gap-4">
             <div>
               <label class="block text-xs font-semibold text-slate-400 uppercase mb-1.5">Sizing Mode</label>
               <select id="cfg_qtymode" class="input-field">
@@ -689,8 +883,8 @@
           </div>
 
           <!-- Risk Management -->
-          <div class="col-span-2 border-t border-white/5 pt-4 mt-2">
-            <h4 class="text-sm font-bold text-white mb-4">Risk Management (MIS Only)</h4>
+          <div class="col-span-2 border-t border-white/5 pt-3 mt-1">
+            <h4 class="text-xs font-bold text-white mb-2">Risk Management (MIS Only)</h4>
             <div class="grid grid-cols-3 gap-4">
               <div>
                 <label class="block text-xs font-semibold text-emerald-400 uppercase mb-1.5">Target %</label>
@@ -708,8 +902,8 @@
           </div>
 
           <!-- Entry Time Window -->
-          <div class="col-span-2 border-t border-white/5 pt-4 mt-2">
-            <h4 class="text-sm font-bold text-white mb-4">Entry Time Window</h4>
+          <div class="col-span-2 border-t border-white/5 pt-3 mt-1">
+            <h4 class="text-xs font-bold text-white mb-2">Entry Time Window</h4>
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <label class="block text-xs font-semibold text-cyan-400 uppercase mb-1.5">Entry Start Time</label>
@@ -724,8 +918,8 @@
             </div>
           </div>
 
-          <div class="col-span-2 border-t border-white/5 pt-4">
-            <div class="flex items-center gap-6">
+          <div class="col-span-2 border-t border-white/5 pt-3">
+            <div class="flex items-center gap-4">
               <div class="flex-1">
                 <label class="block text-xs font-semibold text-slate-400 uppercase mb-1.5">Max Trades / Day</label>
                 <input id="cfg_limit" type="number" class="input-field">
@@ -745,23 +939,23 @@
               </div>
             </div>
             <!-- Dynamic Top Sectors Display -->
-            <div id="topSecContainer" class="col-span-2 mt-2 hidden">
-              <label class="block text-xs font-semibold text-emerald-400 uppercase mb-1.5">Current Top Sectors</label>
-              <div id="topSecList" class="flex flex-wrap gap-2 text-xs">
+            <div id="topSecContainer" class="col-span-2 mt-1 hidden">
+              <label class="block text-xs font-semibold text-emerald-400 uppercase mb-1">Current Top Sectors</label>
+              <div id="topSecList" class="flex flex-wrap gap-1.5 text-[10px]">
                 <!-- Injected by JS -->
               </div>
             </div>
           </div>
         </div>
 
-        <div class="flex gap-3 mt-8 pt-6 border-t border-white/10">
-          <button onclick="saveCfg()" class="btn btn-primary flex-1">Save Configuration</button>
-          <button onclick="loadCfgList()" class="btn btn-secondary">Reload</button>
+        <div class="flex gap-2 mt-6 pt-4 border-t border-white/10">
+          <button onclick="saveCfg()" class="btn btn-primary flex-1 py-2 text-sm">Save Configuration</button>
+          <button onclick="loadCfgList()" class="btn btn-secondary py-2 text-sm">Reload</button>
         </div>
 
-        <div class="mt-8">
-          <h4 class="text-xs font-bold text-slate-500 uppercase mb-3">Saved Strategies</h4>
-          <div id="cfgList" class="space-y-2 max-h-40 overflow-y-auto pr-2">
+        <div class="mt-4">
+          <h4 class="text-[10px] font-bold text-slate-500 uppercase mb-2">Saved Strategies</h4>
+          <div id="cfgList" class="space-y-1.5 max-h-32 overflow-y-auto pr-2">
             <!-- Items injected by JS -->
           </div>
         </div>
@@ -774,7 +968,7 @@
   <div id="confirmModal" class="fixed inset-0 z-[150] hidden">
     <div class="absolute inset-0 bg-black/90 backdrop-blur-md transition-opacity"></div>
     <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm p-4">
-      <div class="relative bg-slate-900 border border-white/10 rounded-2xl p-6 shadow-2xl animate-enter">
+      <div class="relative bg-[#0f172a] border border-white/10 rounded-2xl p-6 shadow-2xl animate-enter">
         <h3 class="text-lg font-bold text-white mb-2 font-[Outfit]">Confirm Action</h3>
         <p id="confirmMsg" class="text-slate-400 text-sm mb-6 leading-relaxed">Are you sure?</p>
         <div class="flex gap-3 justify-end">
@@ -794,6 +988,9 @@
   <script>
     const USER_ID = "{{USER_ID}}";
 
+    /* ================= AUTHENTICATION REMOVED (Cloudflare Zero Trust) ================= */
+    // Logic removed to prevent redirects to /login
+
     /* ================= UI HELPERS ================= */
     function toast(msg, type = 'success') {
       const container = document.getElementById('toast-container');
@@ -805,7 +1002,7 @@
 
       const icon = type === 'error' ? '⚠️' : '✅';
 
-      el.className = `glass px-4 py-3 rounded-xl border flex items-center gap-3 shadow-xl backdrop-blur-xl animate-enter ${colors}`;
+      el.className = `bg-slate-900 px-4 py-3 rounded-xl border flex items-center gap-3 shadow-xl backdrop-blur-xl animate-enter ${colors}`;
       el.innerHTML = `<span class="text-lg">${icon}</span><span class="text-sm font-medium">${msg}</span>`;
 
       container.appendChild(el);
@@ -878,7 +1075,27 @@
     function closeCfg() { document.getElementById("cfgModal").classList.add("hidden"); }
     function openCfg() {
       document.getElementById("cfgModal").classList.remove("hidden");
+
+      // Populate Webhook URL
+      const proto = location.protocol;
+      const host = location.host;
+      const url = `${proto}//${host}/webhook/chartink?user_id=${USER_ID}`;
+      const el = document.getElementById("webhook_url");
+      if (el) el.value = url;
+
       loadCfgList();
+    }
+
+    function copyWebhookUrl() {
+      const copyText = document.getElementById("webhook_url");
+      copyText.select();
+      copyText.setSelectionRange(0, 99999);
+      navigator.clipboard.writeText(copyText.value).then(() => {
+        toast("Webhook URL Copied!");
+      }).catch(err => {
+        console.error('Failed to copy: ', err);
+        toast("Failed to copy URL", "error");
+      });
     }
 
     /* --- API Calls with new Toast --- */
@@ -1104,7 +1321,17 @@
 
     function renderAlerts() {
       const tbody = document.getElementById('alertsBody');
+      const countEl = document.getElementById('alertCount');
       if (!tbody) return;
+
+      // Update alert count badge - count total individual signals (results), not alert batches
+      if (countEl) {
+        let count = 0;
+        ALERTS.forEach(a => {
+          count += (a.result || []).length;
+        });
+        countEl.textContent = `${count} Signal${count !== 1 ? 's' : ''}`;
+      }
 
       if (ALERTS.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" class="text-center py-12 text-slate-500 italic">Waiting for incoming signals...</td></tr>';
@@ -1121,18 +1348,45 @@
           const pChange = parseFloat(r.pct || 0);
           const pClass = pChange > 0 ? "text-emerald-400" : pChange < 0 ? "text-rose-400" : "text-slate-400";
 
+          // Check for live position updates
+          const livePos = POS_MAP[r.symbol];
+          let statusLabel = r.status;
+          let statusReason = r.reason;
+          let sideLabel = r.side; // keep original side
+
+          // Override if live position has interesting status
+          if (livePos) {
+            if (livePos.status === 'EXIT_CONDITIONS_MET') {
+              statusLabel = 'CONDITIONS MET';
+              statusReason = livePos.exit_reason || 'Exit Triggered';
+            } else if (livePos.status === 'EXITING') {
+              statusLabel = 'EXITING';
+              statusReason = livePos.exit_reason;
+            }
+          }
+
           // Helper for status class (using dark variants)
           const getStatusClass = (status) => {
-            switch (status) {
+            const s = (status || '').toUpperCase();
+            if (s.includes('TARGET HIT')) return 'badge-highlight-target';
+            if (s.includes('SL HIT') || s.includes('TSL HIT')) return 'badge-highlight-sl';
+            if (s.includes('EXIT') || s.includes('COMPLETE') || s.includes('SQUARE')) return 'badge-highlight-completed';
+
+            switch (s) {
               case 'ENTERED': return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
               case 'SKIPPED': return 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20';
               case 'ERROR': return 'bg-rose-500/10 text-rose-400 border border-rose-500/20';
+              case 'CONDITIONS MET': return 'bg-gradient-to-r from-orange-500/20 to-amber-500/20 text-orange-200 border border-orange-500/40 shadow-[0_0_10px_rgba(251,146,60,0.3)] animate-pulse';
+              case 'EXITING': return 'badge-highlight-exiting';
               default: return 'bg-slate-800 text-slate-400 border border-slate-700';
             }
           };
 
+          const isEntered = statusLabel === 'ENTERED';
+          const rowBg = isEntered ? 'bg-teal-500/[0.05]' : 'hover:bg-white/[0.04]';
+
           return `
-            <tr class="hover:bg-white/5 transition-colors border-b border-white/5 last:border-0">
+            <tr class="${rowBg} transition-all duration-300 border-b border-white/5 last:border-0 group">
                 <td class="px-4 py-3 whitespace-nowrap">
                     <span class="px-3 py-1.5 rounded-lg text-sm font-bold text-blue-200 tracking-wide">
                         ${a.alert_name}
@@ -1147,12 +1401,14 @@
                     ${r.pct ? r.pct.toFixed(2) + '%' : '--'}
                 </td>
                 <td class="px-4 py-3 whitespace-nowrap text-center">
-                    <span class="px-2 py-1 rounded-full text-[10px] font-bold ${getStatusClass(r.status)}">
-                        ${r.status}
-                    </span>
-                    ${r.status === 'ENTERED' && r.side
-              ? `<div class="text-[9px] font-bold mt-0.5 uppercase ${r.side === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}">${r.side}</div>`
-              : (r.reason ? `<div class="text-[9px] text-slate-500 mt-0.5 max-w-[120px] truncate mx-auto" title="${r.reason}">${r.reason}</div>` : '')}
+                    <div class="flex flex-col items-center gap-1">
+                        <span class="px-2.5 py-1 rounded-full text-[10px] font-black tracking-widest ${getStatusClass(statusLabel)}">
+                            ${statusLabel}
+                        </span>
+                        ${statusLabel === 'ENTERED' && sideLabel
+              ? `<span class="px-3 py-0.5 rounded text-[9px] font-black uppercase tracking-[0.2em] ${sideLabel === 'BUY' ? 'bg-emerald-500/80 text-white shadow-[0_0_8px_rgba(16,185,129,0.3)]' : 'bg-rose-500/80 text-white shadow-[0_0_8px_rgba(244,63,94,0.3)]'}">${sideLabel}</span>`
+              : (statusReason ? `<div class="text-[9px] text-slate-500 mt-0.5 max-w-[120px] truncate mx-auto" title="${statusReason}">${statusReason}</div>` : '')}
+                    </div>
                 </td>
             </tr>
             `;
@@ -1206,7 +1462,7 @@
     async function refreshPositions() {
       const d = await (await fetch(`/api/positions?user_id=${USER_ID}`)).json();
       const pos = d.positions || [];
-      const activePos = pos.filter(p => p.status === 'OPEN');
+      const activePos = pos.filter(p => ['OPEN', 'EXITING', 'EXIT_CONDITIONS_MET', 'ERROR'].includes(p.status));
       activePos.sort((a, b) => a.symbol.localeCompare(b.symbol));
       POS_MAP = {};
       pos.forEach(p => { POS_MAP[p.symbol] = p; });
@@ -1239,43 +1495,86 @@
       }
 
       tbody.innerHTML = rows.map(p => {
-        const pnlClass = p.pnl > 0 ? 'text-emerald-400' : p.pnl < 0 ? 'text-rose-400' : 'text-slate-400';
+        const pnl = Number(p.pnl || 0);
+        const pnlClass = pnl > 0 ? 'text-emerald-400 font-bold' : pnl < 0 ? 'text-rose-400 font-bold' : 'text-slate-400';
         const sideClass = p.side === 'BUY' ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : 'text-rose-400 bg-rose-500/10 border border-rose-500/20';
 
+        // TSL Calculation
         let tslPrice = 0.0;
         const tslPct = Number(p.tsl_pct || 0);
         if (tslPct > 0) {
-          if (p.side === 'BUY' && Number(p.highest || 0) > 0) {
-            tslPrice = Number(p.highest) * (1.0 - tslPct / 100.0);
-          } else if (p.side === 'SELL' && Number(p.lowest || 0) > 0) {
-            tslPrice = Number(p.lowest) * (1.0 + tslPct / 100.0);
-          }
+          if (p.side === 'BUY' && Number(p.highest || 0) > 0) tslPrice = Number(p.highest) * (1.0 - tslPct / 100.0);
+          else if (p.side === 'SELL' && Number(p.lowest || 0) > 0) tslPrice = Number(p.lowest) * (1.0 + tslPct / 100.0);
         }
 
-        const tslDisplay = tslPrice > 0 ? tslPrice.toFixed(2) : '-';
-
         return `
-          <tr class="group text-sm hover:bg-white/5 border-b border-white/5">
-            <td class="font-mono px-3 py-3">
-              <div class="flex items-center">
-                ${p.sector ? `<span class="px-2 py-0.5 mr-2 text-[10px] font-bold rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 shadow-sm whitespace-nowrap tracking-wide">${p.sector}</span>` : ''}
-                <span class="font-bold text-slate-200 text-sm">${p.symbol}</span>
+          <tr class="group text-[13px] hover:bg-white/[0.02] border-b border-white/5 transition-all duration-300">
+            <!-- 1. Symbol -->
+            <td class="px-4 py-4">
+              <div class="flex flex-col">
+                ${p.sector ? `<span class="inline-flex items-center px-2 py-0.5 mb-1.5 rounded text-[9px] font-black uppercase tracking-widest bg-cyan-500/15 text-cyan-300 border border-cyan-500/25 w-fit shadow-sm shadow-cyan-500/5">${p.sector}</span>` : ''}
+                <span class="font-bold text-white text-sm tracking-tight group-hover:text-cyan-400 transition-colors">${p.symbol}</span>
               </div>
             </td>
-            <td class="text-center px-3 py-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${sideClass}">${p.side}</span></td>
-            <td class="text-right px-3 py-3 font-mono text-blue-300">${tslDisplay}</td>
-            <td class="text-right px-3 py-3 font-mono text-cyan-200" id="pltp-${p.symbol}">${Number(p.ltp || 0).toFixed(2)}</td>
-            <td class="text-right px-3 py-3 font-mono font-bold ${pnlClass}" id="ppnl-${p.symbol}">${Number(p.pnl || 0).toFixed(2)}</td>
-            <td class="text-center text-xs text-slate-400">
-              ${p.status}
-              ${p.exit_reason ? `<div class="text-[9px] opacity-70">${p.exit_reason}</div>` : ''}
+            
+            <!-- 2. Strategy -->
+            <td class="px-2 py-4">
+              <span class="text-[10px] font-bold text-slate-400 bg-slate-800/50 px-2.5 py-1 rounded-lg border border-white/5 uppercase tracking-wide">${p.alert_name || 'MANUAL'}</span>
             </td>
-            <td class="text-center">
-              <button onclick="squareoff('${p.symbol}')" class="px-2 py-1 text-[10px] font-bold uppercase tracking-wide rounded bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 hover:text-rose-200 transition-colors">
+
+            <!-- 3. Side -->
+            <td class="px-2 py-4 text-center">
+              <span class="px-2.5 py-1 rounded-lg text-[10px] font-black tracking-wider ${sideClass}">${p.side}</span>
+            </td>
+
+            <!-- 4. Type -->
+            <td class="px-2 py-4 text-center">
+              <span class="text-[10px] font-black text-slate-300 tracking-widest">${p.product || 'MIS'}</span>
+            </td>
+
+            <!-- 5. Qty -->
+            <td class="px-2 py-4 text-right font-mono text-cyan-400 font-bold text-base tracking-tighter">${p.qty}</td>
+
+            <!-- 6. Entry -->
+            <td class="px-2 py-4 text-right font-mono text-slate-400 font-medium">${Number(p.entry_price || 0).toFixed(2)}</td>
+
+            <!-- 7. Target -->
+            <td class="px-2 py-4 text-right font-mono text-emerald-500 font-bold">${Number(p.target_price || 0).toFixed(2)}</td>
+
+            <!-- 8. StopLoss -->
+            <td class="px-2 py-4 text-right font-mono text-rose-500 font-bold">${Number(p.sl_price || 0).toFixed(2)}</td>
+
+            <!-- 9. TSL -->
+            <td class="px-2 py-4 text-right font-mono text-amber-500 font-bold">${tslPrice > 0 ? tslPrice.toFixed(2) : '--'}</td>
+
+            <!-- 10. LTP -->
+            <td class="px-2 py-4 text-right font-mono font-black text-white text-sm" id="pltp-${p.symbol}">${Number(p.ltp || 0).toFixed(2)}</td>
+
+            <!-- 11. P&L -->
+            <td class="px-2 py-4 text-right font-mono font-black text-base ${pnlClass}" id="ppnl-${p.symbol}">${pnl.toFixed(2)}</td>
+
+            <!-- 12. State -->
+            <td class="px-4 py-4 text-center">
+              ${p.status === 'EXIT_CONDITIONS_MET'
+            ? `<span class="px-3 py-1 rounded-lg bg-orange-500/20 text-orange-400 text-[10px] font-black animate-pulse border border-orange-400/30">EXIT READY</span>`
+            : p.status === 'EXITING'
+              ? `<span class="px-3 py-1 rounded-lg badge-highlight-exiting text-[10px] font-black border tracking-widest uppercase">EXITING</span>`
+              : p.status === 'ERROR'
+                ? `<div class="flex flex-col items-center gap-1">
+                     <span class="px-3 py-1 rounded-lg badge-highlight-error text-[10px] font-black border tracking-widest uppercase">ERROR</span>
+                     <span class="text-[8px] text-rose-300 max-w-[80px] truncate" title="${p.exit_reason || 'Order Failed'}">${p.exit_reason || 'Order Failed'}</span>
+                   </div>`
+                : `<span class="px-3 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 text-[10px] font-black border border-emerald-400/20 tracking-widest shadow-sm shadow-emerald-500/10">LIVE</span>`
+          }
+            </td>
+
+            <!-- 13. Actions -->
+            <td class="px-4 py-4 text-center">
+              <button onclick="squareoff('${p.symbol}')" class="px-4 py-2 text-[10px] font-black uppercase tracking-widest bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-xl hover:bg-rose-500/20 hover:text-white hover:border-rose-500/40 transition-all duration-300">
                 Square Off
               </button>
             </td>
-          </tr >
+          </tr>
         `;
       }).join('');
     }
@@ -1309,7 +1608,7 @@
     async function clearAllAlerts() {
       if (!await openConfirm("⚠️ Delete ALL alert history? This cannot be undone.")) return;
       try {
-        const r = await fetch(`/api/alerts?user_id=${USER_ID}`, {
+        const r = await fetch(`/ api / alerts ? user_id = ${USER_ID} `, {
           method: "DELETE"
         });
         const d = await r.json();
@@ -1429,6 +1728,16 @@
       loadAlerts();
       refreshPositions();
       startWS();
+
+      // Check for errors in URL (e.g. from failed login redirect)
+      const urlParams = new URLSearchParams(window.location.search);
+      const err = urlParams.get('error');
+      if (err === 'missing_creds') {
+        setTimeout(() => {
+          toast("Please SAVE your API Key & Secret first!", "error");
+          openCred(); // Open the credentials modal for them
+        }, 500);
+      }
     });
 
     function createStars() {
