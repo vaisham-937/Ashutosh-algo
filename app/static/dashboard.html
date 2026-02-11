@@ -1608,7 +1608,7 @@
     async function clearAllAlerts() {
       if (!await openConfirm("⚠️ Delete ALL alert history? This cannot be undone.")) return;
       try {
-        const r = await fetch(`/ api / alerts ? user_id = ${USER_ID} `, {
+        const r = await fetch(`/api/alerts?user_id=${USER_ID}`, {
           method: "DELETE"
         });
         const d = await r.json();
