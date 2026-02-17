@@ -156,7 +156,9 @@ LUA_LOCK = r"""
 -- KEYS[2] = kill_key
 -- ARGV[1] = ttl_ms
 -- ARGV[2] = now_ms
-if redis.call('EXISTS', KEYS[2]) == 1 then
+-- ARGV[3] = action (e.g. "entry", "exit")
+local action = tostring(ARGV[3] or "")
+if action ~= "exit" and redis.call('EXISTS', KEYS[2]) == 1 then
   return -2
 end
 if redis.call('EXISTS', KEYS[1]) == 1 then
@@ -237,7 +239,7 @@ class RedisStore:
         Return:
           1 acquired
           0 busy
-         -2 kill switch active
+          -2 kill switch active
         """
         await self.init_scripts()
         now_ms = int(time.time() * 1000)
@@ -249,6 +251,7 @@ class RedisStore:
                 k_kill(user_id),
                 str(int(ttl_ms)),
                 str(int(now_ms)),
+                str((action or "").strip().lower()),
             )
         )
 

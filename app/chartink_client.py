@@ -143,6 +143,10 @@ def _as_list(x: Any) -> List[Any]:
         return x
     if isinstance(x, (tuple, set)):
         return list(x)
+    if isinstance(x, dict):
+        # Some integrations send symbols as an object like {"0":"SBIN","1":"TCS"}.
+        # Treat dict values as the list items.
+        return list(x.values())
 
     if isinstance(x, str):
         s = _ZERO_WIDTH.sub("", x).strip()
@@ -216,9 +220,18 @@ def parse_chartink_payload(payload: Dict[str, Any]) -> Tuple[str, List[str], str
     if payload is None:
         payload = {}
 
+    # Make key lookup resilient to casing differences from webhook providers
+    payload_ci: Dict[str, Any] = {}
+    try:
+        for k, v in (payload or {}).items():
+            if isinstance(k, str):
+                payload_ci[k.lower()] = v
+    except Exception:
+        payload_ci = payload or {}
+
     # -------- alert name --------
     raw_alert = _first_present(
-        payload,
+        payload_ci,
         ("scan_name", "trigger_name", "scan", "alert", "alert_name", "name"),
     )
     alert_name = normalize_alert_name(raw_alert or "UNKNOWN_ALERT")
@@ -228,16 +241,20 @@ def parse_chartink_payload(payload: Dict[str, Any]) -> Tuple[str, List[str], str
     ts = _now_ist_str()
 
     # -------- symbols extraction --------
-    raw_symbols = _first_present(payload, ("stocks", "symbols", "stocks[]", "symbol", "stock", "tradingsymbol"))
+    raw_symbols = _first_present(payload_ci, ("stocks", "symbols", "stocks[]", "symbol", "stock", "tradingsymbol"))
 
     # Indexed form fallback
     if raw_symbols is None:
-        indexed = _extract_indexed_stocks(payload)
+        indexed = _extract_indexed_stocks(payload_ci)
         if indexed:
             raw_symbols = indexed
 
     if raw_symbols is None:
         return alert_name, [], ts
+
+    # Handle dict/object style symbols payloads
+    if isinstance(raw_symbols, dict):
+        raw_symbols = list(raw_symbols.values())
 
     # Convert raw -> list and normalize
     items = _as_list(raw_symbols)

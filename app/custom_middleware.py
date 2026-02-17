@@ -2,66 +2,44 @@
 """
 Selective Host Validation Middleware
 
-This middleware provides flexible host validation:
 - Bypasses host checking for webhook endpoints (allows Chartink/external services)
-- Enforces strict host validation for user-facing endpoints (dashboard, API)
+  while still validating user-facing endpoints (dashboard, API).
 """
+
+from __future__ import annotations
+
+import logging
+from typing import List, Optional
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import PlainTextResponse
-from typing import List
+
+logger = logging.getLogger(__name__)
 
 
 class SelectiveHostMiddleware(BaseHTTPMiddleware):
-    """
-    Middleware that selectively validates the Host header.
-    
-    Args:
-        app: The ASGI application
-        allowed_hosts: List of allowed hostnames (e.g., ["example.com", "localhost"])
-        bypass_paths: List of path prefixes that bypass host validation (e.g., ["/webhook/"])
-    """
-    
-    def __init__(self, app, allowed_hosts: List[str], bypass_paths: List[str] = None):
+    def __init__(self, app, allowed_hosts: List[str], bypass_paths: Optional[List[str]] = None):
         super().__init__(app)
         self.allowed_hosts = allowed_hosts or ["*"]
         self.bypass_paths = bypass_paths or []
-    
+
     async def dispatch(self, request, call_next):
-        """
-        Process each request and validate the Host header if needed.
-        """
-        # Debug logging
-        print(f"[MIDDLEWARE] Path: {request.url.path}")
-        print(f"[MIDDLEWARE] Bypass paths: {self.bypass_paths}")
-        
-        # Check if request path should bypass host validation
+        # Bypass host validation for selected paths (e.g. webhooks).
         for bypass_path in self.bypass_paths:
             if request.url.path.startswith(bypass_path):
-                # Allow request without host validation
-                print(f"[MIDDLEWARE] ✅ BYPASSED for path: {request.url.path}")
                 return await call_next(request)
-        
-        # Extract host from Host header (remove port if present)
+
+        # Extract host from Host header (strip port if present).
         host_header = request.headers.get("host", "")
         host = host_header.split(":")[0] if host_header else ""
-        
-        print(f"[MIDDLEWARE] Host header: {host_header}")
-        print(f"[MIDDLEWARE] Allowed hosts: {self.allowed_hosts}")
-        
-        # Check if wildcard is in allowed hosts
+
+        # Wildcard allow
         if "*" in self.allowed_hosts:
-            print(f"[MIDDLEWARE] ✅ Wildcard allowed")
             return await call_next(request)
-        
-        # Validate host against allowed list
+
         if host in self.allowed_hosts:
-            print(f"[MIDDLEWARE] ✅ Host validated: {host}")
             return await call_next(request)
-        
-        # Host validation failed
-        print(f"[MIDDLEWARE] ❌ BLOCKED - Invalid host: {host_header}")
-        return PlainTextResponse(
-            f"Invalid host header: {host_header}",
-            status_code=400
-        )
+
+        logger.warning("Blocked invalid host header=%s path=%s", host_header, request.url.path)
+        return PlainTextResponse(f"Invalid host header: {host_header}", status_code=400)
+

@@ -509,6 +509,12 @@
             <span class="text-[10px] font-bold text-slate-500 tracking-widest uppercase">WS: LIVE</span>
           </div>
 
+          <!-- Refresh / Restart Trading Service -->
+          <button id="restartTradingBtn" onclick="restartTradingService()"
+            class="hidden sm:flex btn px-4 py-1.5 rounded-lg bg-slate-500/10 text-slate-200 border border-slate-500/20 hover:bg-slate-500/20 transition-all font-bold text-xs uppercase tracking-wider">
+            ⟳ Refresh
+          </button>
+
           <!-- Kill Switch -->
           <button id="killBtn" onclick="killSwitch()"
             class="hidden sm:flex btn px-4 py-1.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-all font-bold text-xs uppercase tracking-wider">
@@ -1145,25 +1151,72 @@
       }
     }
 
+    async function restartTradingService() {
+      const ok = await openConfirm("Restart trading service now? (This runs the server-side restart command.)");
+      if (!ok) return;
+
+      const attempt = async (token) => {
+        const headers = { "Content-Type": "application/json" };
+        if (token) headers["X-Restart-Token"] = token;
+        const r = await fetch("/api/service/restart", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ user_id: USER_ID })
+        });
+        const d = await r.json().catch(() => ({}));
+        return { r, d };
+      };
+
+      try {
+        toast("Restart requested…");
+        let { r, d } = await attempt(localStorage.getItem("SERVICE_RESTART_TOKEN") || "");
+
+        if (r.status === 403) {
+          const t = prompt("Restart token required. Enter SERVICE_RESTART_TOKEN:", "") || "";
+          if (!t) throw new Error("Restart token required");
+          localStorage.setItem("SERVICE_RESTART_TOKEN", t);
+          ({ r, d } = await attempt(t));
+        }
+
+        if (!r.ok || d.ok === false) {
+          throw new Error(d.error || d.detail || `Restart failed (${r.status})`);
+        }
+
+        toast(d.message || "Restart requested");
+        setTimeout(() => location.reload(), 2500);
+      } catch (e) {
+        toast((e && e.message) ? e.message : String(e), "error");
+      }
+    }
+
     async function killSwitch() {
       const btn = document.getElementById("killBtn");
       const isKill = btn.innerText.includes("RESUME");
 
       const msg = isKill
         ? "🟢 RESUME TRADING? This will re-enable order placement."
-        : "⚠️ EMERGENCY: STOP TRADING? This will BLOCK all new entries.";
+        : "⚠️ EMERGENCY: STOP TRADING? This will square-off open positions, then BLOCK all new entries.";
 
       if (!confirm(msg)) return;
 
       // Toggle (if isKill is true, we want enabled=false)
       const enabled = !isKill;
 
-      await fetch("/api/kill-switch", {
+      const resp = await fetch("/api/kill-switch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: USER_ID, enabled: enabled })
       });
+      const d = await resp.json().catch(() => ({}));
 
+      if (!resp.ok || d.error) {
+        toast(d.error || d.detail || "Kill switch request failed", "error");
+        return;
+      }
+
+      if (enabled && d.squareoff && typeof d.squareoff.count === "number") {
+        toast(`Square-off triggered for ${d.squareoff.count} positions`, "error");
+      }
       toast(enabled ? "KILL SWITCH ACTIVATED" : "TRADING RESUMED", enabled ? 'error' : 'success');
       refreshZ();
     }
@@ -1343,13 +1396,18 @@
         const timeClass = "text-slate-500";
         const symbolClass = "font-bold text-slate-200";
 
-        // Generate rows for each result in the alert
-        return (a.result || []).map(r => {
+        // Generate rows for each result in the alert.
+        // If parsing failed and result is empty, render a single diagnostic row
+        // so the alert batch is still visible on the dashboard.
+        const results = (a.result && a.result.length) ? a.result : [{ symbol: "", status: "ERROR", reason: "NO_SYMBOLS_PARSED" }];
+        return results.map(r => {
           const pChange = parseFloat(r.pct || 0);
           const pClass = pChange > 0 ? "text-emerald-400" : pChange < 0 ? "text-rose-400" : "text-slate-400";
 
           // Check for live position updates
-          const livePos = POS_MAP[r.symbol];
+          const sym = (r.symbol || '').trim();
+          const symLabel = sym || '--';
+          const livePos = POS_MAP[sym];
           let statusLabel = r.status;
           let statusReason = r.reason;
           let sideLabel = r.side; // keep original side
@@ -1393,13 +1451,13 @@
                     </span>
                 </td>
                 <td class="px-4 py-3 whitespace-nowrap text-xs ${timeClass} font-mono">${timeStr}</td>
-                <td class="px-4 py-3 whitespace-nowrap text-sm ${symbolClass}">${r.symbol}</td>
-                <td class="px-4 py-3 whitespace-nowrap text-right font-mono text-sm text-slate-300" data-symbol="${r.symbol}" data-field="ltp">
-                    ${r.ltp ? r.ltp.toFixed(2) : '--'}
-                </td>
-                <td class="px-4 py-3 whitespace-nowrap text-right font-mono text-sm font-bold ${pClass}" data-symbol="${r.symbol}" data-field="pct">
-                    ${r.pct ? r.pct.toFixed(2) + '%' : '--'}
-                </td>
+                 <td class="px-4 py-3 whitespace-nowrap text-sm ${symbolClass}">${symLabel}</td>
+                 <td class="px-4 py-3 whitespace-nowrap text-right font-mono text-sm text-slate-300" data-symbol="${sym}" data-field="ltp">
+                     ${r.ltp ? r.ltp.toFixed(2) : '--'}
+                 </td>
+                 <td class="px-4 py-3 whitespace-nowrap text-right font-mono text-sm font-bold ${pClass}" data-symbol="${sym}" data-field="pct">
+                     ${r.pct ? r.pct.toFixed(2) + '%' : '--'}
+                 </td>
                 <td class="px-4 py-3 whitespace-nowrap text-center">
                     <div class="flex flex-col items-center gap-1">
                         <span class="px-2.5 py-1 rounded-full text-[10px] font-black tracking-widest ${getStatusClass(statusLabel)}">

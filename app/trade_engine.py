@@ -8,7 +8,7 @@ import logging
 import json
 from datetime import datetime
 from dataclasses import dataclass, asdict
-from typing import Any, Dict, Optional, Literal, List, Tuple
+from typing import Any, Dict, Optional, Literal, List, Tuple, Set
 from dataclasses import fields as _dc_fields
 from kiteconnect import KiteConnect  # type: ignore
 
@@ -353,6 +353,9 @@ class TradeEngine:
         self._last_sector_rank_log: float = 0.0
         self.sector_rank_log_interval_sec: float = 30.0  # Log every 30 seconds
 
+        # Kill-switch / panic coordination (avoid concurrent triggers)
+        self._kill_trigger_lock = asyncio.Lock()
+
     # ---------------- broker setup ----------------
     async def configure_kite(self) -> None:
         creds = await self.store.load_credentials(self.user_id)
@@ -555,9 +558,8 @@ class TradeEngine:
             )
             return str(oid)
         except Exception as e:
-            # KILL SWITCH TRIGGER
+            # Order placement failed (caller decides whether to trigger kill switch)
             log.error("🔥 ORDER_FLAGS_KILL_SWITCH | user=%s sym=%s err=%s", self.user_id, symbol, e)
-            await self.store.set_kill(self.user_id, True)
             raise e
 
     # ---------------- Zerodha order updates (ws) ----------------
@@ -989,6 +991,14 @@ class TradeEngine:
                 oid = await self._place_order(symbol, side, qty, product)
             except Exception as e:
                 log.error("❌ ENTRY_ORDER_FAIL | user=%s alert=%s symbol=%s err=%s", self.user_id, alert_key, symbol, e)
+                # If order placement fails, square-off any existing exposure, then enable kill switch.
+                try:
+                    await self.trigger_kill_switch(
+                        reason=f"ENTRY_ORDER_FAIL:{alert_key}:{symbol}",
+                        squareoff_first=True,
+                    )
+                except Exception as e2:
+                    log.error("KILL_SWITCH_TRIGGER_FAIL | user=%s err=%s", self.user_id, e2)
                 return {"symbol": symbol, "status": "ERROR", "reason": str(e)}
 
             try:
@@ -1646,6 +1656,12 @@ class TradeEngine:
                         _fmt_pos(pos),
                     )
 
+                    # On exit failure, enable kill switch (prevents new entries). Avoid square-off recursion here.
+                    try:
+                        await self._enable_kill_switch(reason=f"EXIT_ORDER_FAIL:{symbol}")
+                    except Exception as e3:
+                        log.error("KILL_SWITCH_ENABLE_FAIL | user=%s err=%s", self.user_id, e3)
+
                     try:
                         await self.store.upsert_position(self.user_id, symbol, pos.to_public())
                     except Exception as e2:
@@ -1684,12 +1700,6 @@ class TradeEngine:
                         self.user_id, reason, len(self.positions))
             return 0
 
-        # 🛑 KILL SWITCH CHECK
-        if await self.store.is_kill(self.user_id):
-            log.error("🛑 KILL_SWITCH_ACTIVE | user=%s | Rejecting exit_all for reason=%s", self.user_id, reason)
-            # Return 0 as no positions will be exited
-            return 0
-
         log.info("⏰ EXIT_ALL_TRIGGER | user=%s reason=%s count=%s symbols=%s", self.user_id, reason, len(symbols), symbols)
 
         for sym in symbols:
@@ -1698,4 +1708,89 @@ class TradeEngine:
             count += 1
         
         return count
+
+    async def squareoff_all_positions(self, reason: str = "MANUAL_EXIT_ALL") -> Dict[str, Any]:
+        """
+        Best-effort square-off of *all* known open positions.
+
+        Sources:
+          1) In-memory OPEN positions
+          2) Redis snapshot (if available)
+          3) Zerodha positions() REST fallback (if connected)
+        """
+        symbols: Set[str] = set()
+
+        # 1) Memory
+        try:
+            for s, p in (self.positions or {}).items():
+                if getattr(p, "status", "") == "OPEN":
+                    symbols.add(norm_symbol(s))
+        except Exception:
+            pass
+
+        # 2) Redis snapshot
+        try:
+            rows = await self.store.list_positions(self.user_id)
+            for r in rows or []:
+                sym = norm_symbol(str(r.get("symbol") or ""))
+                qty = int(r.get("qty") or 0)
+                status = str(r.get("status") or "").upper()
+                if sym and qty != 0 and status in {"OPEN", "EXITING", "EXIT_CONDITIONS_MET"}:
+                    symbols.add(sym)
+        except Exception:
+            pass
+
+        # 3) Zerodha REST fallback
+        try:
+            ok = await self._ensure_kite_ready()
+            if ok:
+                data = await self._kite_positions()
+                rows = []
+                try:
+                    rows = list(data.get("net") or []) + list(data.get("day") or [])
+                except Exception:
+                    rows = []
+                for r in rows:
+                    sym = norm_symbol(str(r.get("tradingsymbol") or ""))
+                    qty = int(r.get("quantity") or 0)
+                    if sym and qty != 0:
+                        symbols.add(sym)
+        except Exception:
+            pass
+
+        results: List[Dict[str, Any]] = []
+        for sym in sorted(symbols):
+            try:
+                r = await self.manual_squareoff_zerodha(sym, reason=reason)
+            except Exception as e:
+                r = {"status": "ERROR", "reason": str(e), "symbol": sym}
+            results.append(dict(r))
+
+        return {"ok": True, "count": len(symbols), "results": results}
+
+    async def _enable_kill_switch(self, reason: str) -> None:
+        await self.store.set_kill(self.user_id, True)
+        try:
+            if self.broadcast_cb:
+                self.broadcast_cb(self.user_id, {"type": "kill_switch", "enabled": True, "reason": reason})
+        except Exception:
+            pass
+
+    async def trigger_kill_switch(self, reason: str, squareoff_first: bool = True) -> Dict[str, Any]:
+        """
+        Panic action: square-off exposure (best-effort), then enable kill switch.
+        """
+        async with self._kill_trigger_lock:
+            if await self.store.is_kill(self.user_id):
+                return {"ok": True, "enabled": True, "already": True}
+
+            sq: Optional[Dict[str, Any]] = None
+            if squareoff_first:
+                try:
+                    sq = await self.squareoff_all_positions(reason=f"KILL_SWITCH:{reason}")
+                except Exception as e:
+                    sq = {"ok": False, "error": str(e), "count": 0, "results": []}
+
+            await self._enable_kill_switch(reason=reason)
+            return {"ok": True, "enabled": True, "squareoff": sq}
 
