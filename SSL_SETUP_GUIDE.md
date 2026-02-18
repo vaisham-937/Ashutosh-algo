@@ -191,10 +191,19 @@ server {
         # WebSocket support
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
+        proxy_set_header Connection $connection_upgrade;
     }
 }
 ```
+
+> Note: For `proxy_set_header Connection $connection_upgrade;` you should define this once in your nginx `http {}` context:
+>
+> ```nginx
+> map $http_upgrade $connection_upgrade {
+>     default upgrade;
+>     ''      close;
+> }
+> ```
 
 3. **Enable site and restart nginx**:
 ```bash

@@ -1283,6 +1283,15 @@ async def toggle_auto_sq_off(payload: Dict[str, Any]) -> Dict[str, Any]:
 # -----------------------------
 # WebSocket feed
 # -----------------------------
+@app.get("/ws/feed")
+async def ws_feed_http(user_id: int = 1) -> Dict[str, Any]:
+    # If someone hits this endpoint via normal HTTP, FastAPI will not match the WebSocket route
+    # and you'll see 404s in logs. Return a clear response instead.
+    raise HTTPException(
+        status_code=426,
+        detail="Upgrade Required: connect using WebSocket (ws:// or wss://) to /ws/feed",
+    )
+
 @app.websocket("/ws/feed")
 async def ws_feed(ws: WebSocket, user_id: int = 1):
     user_id = int(user_id)

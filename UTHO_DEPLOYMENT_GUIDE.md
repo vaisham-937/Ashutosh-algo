@@ -730,6 +730,35 @@ sudo nginx -t
 sudo systemctl restart nginx
 ```
 
+### Issue: WebSocket Feed Disconnected (426 Upgrade Required on `/ws/feed`)
+
+If you see logs like:
+
+```
+GET /ws/feed?user_id=1 ... 426 Upgrade Required
+```
+
+It means your browser is trying to open a WebSocket, but your reverse-proxy (usually nginx) is forwarding it as a normal HTTP request (missing `Upgrade: websocket`), so the dashboard live feed won't connect.
+
+```bash
+# 1) Confirm Cloudflare setting (if using Cloudflare)
+# Cloudflare Dashboard -> Network -> WebSockets = ON
+
+# 2) Fix nginx WebSocket proxy headers (must use HTTP/1.1 + Upgrade headers)
+sudo nano /etc/nginx/sites-enabled/trading
+
+# Ensure you have these inside the location block proxying to 127.0.0.1:8000:
+#   proxy_http_version 1.1;
+#   proxy_set_header Upgrade $http_upgrade;
+#   proxy_set_header Connection $connection_upgrade;
+# (See this repo's nginx.conf.template for a working example.)
+
+# 3) Reload nginx
+sudo nginx -t && sudo systemctl restart nginx
+
+# 4) Verify the feed connects (open dashboard and check WS badge shows LIVE)
+```
+
 ### Issue: Webhook Not Receiving Alerts
 
 ```bash

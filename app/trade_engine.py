@@ -530,6 +530,51 @@ class TradeEngine:
             await asyncio.sleep(0.05)
         return 0.0
 
+    async def _rest_quote_tick(self, symbol: str) -> Dict[str, float]:
+        """
+        REST quote fallback for when websocket ticks aren't available yet.
+        Returns a minimal tick dict: {"ltp": float, "close": float}
+        """
+        sym = norm_symbol(symbol or "")
+        if not sym:
+            return {}
+
+        ok = await self._ensure_kite_ready()
+        if not ok:
+            return {}
+
+        def _quote(api_key: str, access_token: str, s: str) -> Dict[str, float]:
+            kite = KiteConnect(api_key=api_key)
+            kite.set_access_token(access_token)
+            q_key = f"NSE:{s}"
+            qs = kite.quote([q_key]) or {}
+            d = qs.get(q_key) or {}
+            ltp = float(d.get("last_price") or 0.0)
+            close = float((d.get("ohlc") or {}).get("close") or 0.0)
+            return {"ltp": ltp, "close": close}
+
+        try:
+            tick = await self.order_worker.submit(
+                _quote,
+                api_key=self.api_key,
+                access_token=self.access_token,
+                s=sym,
+            )
+        except Exception:
+            return {}
+
+        ltp = float(tick.get("ltp", 0.0) or 0.0)
+        if ltp > 0:
+            # Only seed cache if websocket tick is missing/empty.
+            cur = self.ticks.get(sym) or {}
+            cur_ltp = float(cur.get("ltp", 0.0) or 0.0)
+            if cur_ltp <= 0:
+                merged = dict(cur)
+                merged.update({"ltp": float(tick.get("ltp", 0.0) or 0.0), "close": float(tick.get("close", 0.0) or 0.0)})
+                self.ticks[sym] = merged
+
+        return {"ltp": float(tick.get("ltp", 0.0) or 0.0), "close": float(tick.get("close", 0.0) or 0.0)}
+
     # ---------------- order placement ----------------
     async def _place_order(self, symbol: str, side: Side, qty: int, product: Product) -> str:
         def _place(api_key: str, access_token: str, sym: str, s: Side, q: int, prod: Product) -> str:
@@ -927,7 +972,11 @@ class TradeEngine:
             ltp = float(tick.get("ltp", 0.0))
 
             if cfg.qty_mode == "CAPITAL" and ltp <= 0:
-                ltp = await self._wait_for_ltp(symbol, timeout_sec=0.30)
+                ltp = await self._wait_for_ltp(symbol, timeout_sec=0.80)
+
+            if cfg.qty_mode == "CAPITAL" and ltp <= 0:
+                qt = await self._rest_quote_tick(symbol)
+                ltp = float(qt.get("ltp", 0.0)) if qt else 0.0
 
             if cfg.qty_mode == "CAPITAL" and ltp <= 0:
                 log.warning("⚠️ NO_LTP_CAPITAL | user=%s alert=%s symbol=%s", self.user_id, alert_key, symbol)

@@ -68,6 +68,12 @@ class IntegrationTests(unittest.TestCase):
         self.assertEqual(r2.json()["ok"], True)
         self.assertEqual(r2.json()["count"], 1)
 
+    def test_ws_feed_http_returns_upgrade_required(self) -> None:
+        r = self.client.get("/ws/feed", params={"user_id": 1})
+        self.assertEqual(r.status_code, 426)
+        body = r.json()
+        self.assertIn("detail", body)
+
 
 if __name__ == "__main__":
     unittest.main()
