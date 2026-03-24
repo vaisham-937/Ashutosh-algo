@@ -30,10 +30,10 @@ STS_INCLUDE_SUBDOMAINS = True
 CSP_POLICY = {
     "default-src": "'self'",
     "script-src": "'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://code.jquery.com https://cdnjs.cloudflare.com https://cdn.tailwindcss.com",
-    "style-src": "'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
+    "style-src": "'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com https://cdnjs.cloudflare.com",
     "img-src": "'self' data: https:",
     "connect-src": "'self' wss: ws: https:",
-    "font-src": "'self' https://fonts.gstatic.com",
+    "font-src": "'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:",
     "frame-ancestors": "'none'", # Clickjacking protection
     "object-src": "'none'",
 }

@@ -325,6 +325,7 @@ class TradeEngine:
 
         self.api_key: str = ""
         self.access_token: str = ""
+        self.kite: Optional[KiteConnect] = None
 
         self.ticks: Dict[str, Dict[str, float]] = {}
         self.positions: Dict[str, Position] = {}
@@ -340,7 +341,7 @@ class TradeEngine:
         # exit guards
         self._exit_inflight: Dict[str, bool] = {}
         self._exit_signal_sent: Dict[str, bool] = {}
-# entry reconciliation (avoid repeated REST calls)
+        # entry reconciliation (avoid repeated REST calls)
         self._recon_inflight: Dict[str, bool] = {}
         # monitoring log controls
         self._mon_last_log: Dict[str, float] = {}
@@ -375,414 +376,76 @@ class TradeEngine:
 
         await self.order_worker.start()
 
-        log.info(
-            "🔑 CONFIGURE_KITE_READY | user=%s api_key_len=%s token_len=%s",
-            self.user_id,
-            len(self.api_key or ""),
-            len(self.access_token or ""),
-        )
-
-    
-    async def _ensure_kite_ready(self) -> bool:
-        if self.api_key and self.access_token:
-            return True
-        try:
-            await self.configure_kite()
-        except Exception as e:
-            log.error("❌ CONFIGURE_KITE_FAIL | user=%s err=%s", self.user_id, e)
-            return False
-        return bool(self.api_key and self.access_token)
-
-    # ---------------- sector ranking ----------------
-    def _update_sector_perf(self, symbol: str, pct: float) -> None:
-        sec = self.sym_sector.get(symbol)
-        if not sec:
-            return
-
-        old = self.sym_pct.get(symbol)
-        if old is None:
-            self.sym_pct[symbol] = pct
-            self.sector_sum[sec] = self.sector_sum.get(sec, 0.0) + pct
-            self.sector_cnt[sec] = self.sector_cnt.get(sec, 0) + 1
-            log.debug(
-                "📊 SECTOR_TRACK_NEW | %s (%s) = %+.2f%% | Sector avg now: %+.2f%%",
-                symbol, sec, pct, self.sector_sum[sec] / self.sector_cnt[sec]
-            )
-            return
-
-        self.sym_pct[symbol] = pct
-        self.sector_sum[sec] = self.sector_sum.get(sec, 0.0) + (pct - old)
-        log.debug(
-            "📊 SECTOR_UPDATE | %s (%s) = %+.2f%% (was %+.2f%%) | Sector avg: %+.2f%%",
-            symbol, sec, pct, old, self.sector_sum[sec] / self.sector_cnt[sec]
-        )
-
-    def get_sector_rank(self) -> List[Tuple[str, float]]:
-        out: List[Tuple[str, float]] = []
-        for sec, ssum in self.sector_sum.items():
-            cnt = self.sector_cnt.get(sec, 0)
-            if cnt > 0:
-                out.append((sec, ssum / cnt))
-        out.sort(key=lambda x: x[1], reverse=True)
-        return out
-
-    def _sector_allows(self, symbol: str, cfg: AlertConfig) -> bool:
-        if not cfg.sector_filter_on:
-            return True
-
-        # Debug: Show available sectors for this symbol
-        sec = self.sym_sector.get(symbol)
-        
-        if not sec:
-            # Try to help debug - show similar symbols
-            available_symbols = [s for s in self.sym_sector.keys() if symbol.upper() in s.upper() or s.upper() in symbol.upper()]
-            log.warning(
-                "❌ SECTOR_UNKNOWN | symbol='%s' (not in STOCK_INDEX_MAPPING with %d stocks, REJECTING) | Similar: %s",
-                symbol, len(self.sym_sector), available_symbols[:3] if available_symbols else "none"
-            )
-            return False  # STRICT: Reject unknown stocks when filter is ON
-
-        ranked = self.get_sector_rank()
-        if not ranked:
-            log.info("ℹ️ SECTOR_NO_DATA | No sector data available yet, allowing all")
-            return True
-
-        topn = max(1, int(cfg.top_n_sector))
-        top_gainers = {s for s, _ in ranked[:topn]}
-        top_losers = {s for s, _ in ranked[-topn:]}
-
-        # Log current sector rankings
-        log.info(
-            "\n" + "="*80 + "\n" +
-            "📊 SECTOR RANKINGS (Top %d for %s)\n" % (topn, cfg.direction) +
-            "="*80
-        )
-        
-        if cfg.direction == "LONG":
-            log.info("🔝 TOP %d GAINERS (ALLOWED for LONG):", topn)
-            for i, (s, pct) in enumerate(ranked[:topn], 1):
-                log.info("   %d. %s: %+.2f%%", i, s, pct)
-            
-            log.info("\n📉 BOTTOM SECTORS (REJECTED for LONG):")
-            for i, (s, pct) in enumerate(ranked[topn:], topn+1):
-                log.info("   %d. %s: %+.2f%%", i, s, pct)
-        else:  # SHORT
-            log.info("📉 BOTTOM %d LOSERS (ALLOWED for SHORT):", topn)
-            for i, (s, pct) in enumerate(reversed(ranked[-topn:]), 1):
-                log.info("   %d. %s: %+.2f%%", i, s, pct)
-            
-            log.info("\n🔝 TOP SECTORS (REJECTED for SHORT):")
-            for i, (s, pct) in enumerate(reversed(ranked[:-topn]), 1):
-                log.info("   %d. %s: %+.2f%%", i, s, pct)
-        
-        log.info("="*80)
-
-        # Check if symbol's sector is in allowed list
-        if cfg.direction == "LONG":
-            allowed = sec in top_gainers
-            sector_pct = next((pct for s, pct in ranked if s == sec), 0.0)
-            
-            if allowed:
-                log.info(
-                    "✅ SECTOR_PASS | symbol=%s sector=%s (%+.2f%%) | Rank in TOP %d gainers",
-                    symbol, sec, sector_pct, topn
-                )
-            else:
-                rank = next((i+1 for i, (s, _) in enumerate(ranked) if s == sec), 0)
-                log.info(
-                    "❌ SECTOR_REJECT | symbol=%s sector=%s (%+.2f%%) | Rank #%d (not in TOP %d)",
-                    symbol, sec, sector_pct, rank, topn
-                )
-            return allowed
-        else:  # SHORT
-            allowed = sec in top_losers
-            sector_pct = next((pct for s, pct in ranked if s == sec), 0.0)
-            
-            if allowed:
-                log.info(
-                    "✅ SECTOR_PASS | symbol=%s sector=%s (%+.2f%%) | Rank in BOTTOM %d losers",
-                    symbol, sec, sector_pct, topn
-                )
-            else:
-                rank = next((i+1 for i, (s, _) in enumerate(ranked) if s == sec), 0)
-                log.info(
-                    "❌ SECTOR_REJECT | symbol=%s sector=%s (%+.2f%%) | Rank #%d (not in BOTTOM %d)",
-                    symbol, sec, sector_pct, rank, topn
-                )
-            return allowed
-
-    # ---------------- qty helpers ----------------
-    def _calc_qty(self, cfg: AlertConfig, ltp: float) -> int:
-        if cfg.qty_mode == "QTY":
-            return max(1, int(cfg.qty))
-        if ltp <= 0:
-            return 0
-        return max(1, int(float(cfg.capital) // float(ltp)))
-
-    async def _wait_for_ltp(self, symbol: str, timeout_sec: float = 0.30) -> float:
-        end = time.time() + float(timeout_sec)
-        while time.time() < end:
-            tick = self.ticks.get(symbol)
-            if tick:
-                ltp = float(tick.get("ltp", 0.0))
-                if ltp > 0:
-                    return ltp
-            await asyncio.sleep(0.05)
-        return 0.0
-
-    async def _rest_quote_tick(self, symbol: str) -> Dict[str, float]:
-        """
-        REST quote fallback for when websocket ticks aren't available yet.
-        Returns a minimal tick dict: {"ltp": float, "close": float}
-        """
-        sym = norm_symbol(symbol or "")
-        if not sym:
-            return {}
-
-        ok = await self._ensure_kite_ready()
-        if not ok:
-            return {}
-
-        def _quote(api_key: str, access_token: str, s: str) -> Dict[str, float]:
-            kite = KiteConnect(api_key=api_key)
-            kite.set_access_token(access_token)
-            q_key = f"NSE:{s}"
-            qs = kite.quote([q_key]) or {}
-            d = qs.get(q_key) or {}
-            ltp = float(d.get("last_price") or 0.0)
-            close = float((d.get("ohlc") or {}).get("close") or 0.0)
-            return {"ltp": ltp, "close": close}
-
-        try:
-            tick = await self.order_worker.submit(
-                _quote,
-                api_key=self.api_key,
-                access_token=self.access_token,
-                s=sym,
-            )
-        except Exception:
-            return {}
-
-        ltp = float(tick.get("ltp", 0.0) or 0.0)
-        if ltp > 0:
-            # Only seed cache if websocket tick is missing/empty.
-            cur = self.ticks.get(sym) or {}
-            cur_ltp = float(cur.get("ltp", 0.0) or 0.0)
-            if cur_ltp <= 0:
-                merged = dict(cur)
-                merged.update({"ltp": float(tick.get("ltp", 0.0) or 0.0), "close": float(tick.get("close", 0.0) or 0.0)})
-                self.ticks[sym] = merged
-
-        return {"ltp": float(tick.get("ltp", 0.0) or 0.0), "close": float(tick.get("close", 0.0) or 0.0)}
-
-    # ---------------- order placement ----------------
-    async def _place_order(self, symbol: str, side: Side, qty: int, product: Product) -> str:
-        def _place(api_key: str, access_token: str, sym: str, s: Side, q: int, prod: Product) -> str:
-            kite = KiteConnect(api_key=api_key)
-            kite.set_access_token(access_token)
-            return kite.place_order(
-                variety=kite.VARIETY_REGULAR,
-                exchange=kite.EXCHANGE_NSE,
-                tradingsymbol=sym,
-                transaction_type=(kite.TRANSACTION_TYPE_BUY if s == "BUY" else kite.TRANSACTION_TYPE_SELL),
-                quantity=int(q),
-                product=(kite.PRODUCT_MIS if prod == "MIS" else kite.PRODUCT_CNC),
-                order_type=kite.ORDER_TYPE_MARKET,
-                validity=kite.VALIDITY_DAY,
-            )
-
-        try:
-            oid = await self.order_worker.submit(
-                _place,
-                api_key=self.api_key,
-                access_token=self.access_token,
-                sym=symbol,
-                s=side,
-                q=int(qty),
-                prod=product,
-            )
-            return str(oid)
-        except Exception as e:
-            # Order placement failed (caller decides whether to trigger kill switch)
-            log.error("🔥 ORDER_FLAGS_KILL_SWITCH | user=%s sym=%s err=%s", self.user_id, symbol, e)
-            raise e
-
-    # ---------------- Zerodha order updates (ws) ----------------
-    async def on_order_update(self, ou: Dict[str, Any]) -> None:
-        """
-        Zerodha websocket order updates -> set entry_price from average_price when entry fills.
-        """
-        try:
-            await self._on_order_update_unsafe(ou)
-        except Exception as e:
-            log.exception("🔥 CRITICAL_ORDER_UPDATE_ERROR | user=%s err=%s", self.user_id, e)
-            # Optional: Kill switch on order update error? Maybe not, as it might be parsing error.
-            # But if it's critical, yes. Safe to just log for now unless it breaks state.
-            pass
-
-    async def _on_order_update_unsafe(self, ou: Dict[str, Any]) -> None:
-        try:
-            status = str(ou.get("status") or "").upper()
-            order_id = str(ou.get("order_id") or "").strip()
-            sym = norm_symbol(str(ou.get("tradingsymbol") or ""))
-            avg = float(ou.get("average_price") or 0.0)
-            filled_qty = int(ou.get("filled_quantity") or 0)
-            txn = str(ou.get("transaction_type") or "").upper()
-
-            if not order_id or not sym:
-                return
-
-            if status != "COMPLETE" or avg <= 0:
-                return
-
-            pos = self.positions.get(sym)
-            if not pos:
-                return
-
-            # Entry fill
-            if pos.entry_order_id == order_id:
-                # ALWAYS update entry price on fill (slippage handling)
-                old_entry = pos.entry_price
-                pos.entry_price = float(avg)
-
-                # ALWAYS recalculate levels based on actual fill price
-                if pos.product == "MIS" and pos.entry_price > 0:
-                    # Retrieve config % from stored values (you might need to ensure they are stored in pos)
-                    # or fallback to current pos values if calculated.
-                    # Best: use cfg_*_pct if available, else derive.
-                    
-                    # We stored cfg_*_pct in _try_enter, let's use them if available, else fallback
-                    tgt_pct = getattr(pos, "cfg_target_pct", 0.0) or pos.target_pct
-                    sl_pct = getattr(pos, "cfg_sl_pct", 0.0) or pos.stop_loss_pct
-                    tsl_pct = getattr(pos, "cfg_tsl_pct", 0.0) or pos.trailing_sl_pct
-
-                    if pos.side == "BUY":
-                        pos.target_price = pos.entry_price * (1.0 + tgt_pct / 100.0)
-                        pos.sl_price = pos.entry_price * (1.0 - sl_pct / 100.0)
-                        pos.highest = pos.entry_price
-                    else:
-                        pos.target_price = pos.entry_price * (1.0 - tgt_pct / 100.0)
-                        pos.sl_price = pos.entry_price * (1.0 + sl_pct / 100.0)
-                        pos.lowest = pos.entry_price
-
-                    pos.tsl_pct = tsl_pct
-
-                pos.updated_ts = time.time()
-
-                log.info(
-                    "\n%s\n%s\n%s",
-                    _bold(_green("✅ ENTRY_FILL_UPDATED")),
-                    _dim(_j(user=self.user_id, symbol=sym, oid=order_id, txn=txn, filled=filled_qty, avg=avg)),
-                    _dim(f"entry_adj: {old_entry:.2f} -> {pos.entry_price:.2f} | TGT: {pos.target_price:.2f} SL: {pos.sl_price:.2f}"),
-                )
-                try:
-                    await self.store.upsert_position(self.user_id, sym, pos.to_public())
-                except Exception:
-                    pass
-
-            # Exit fill (nice log)
-            if pos.exit_order_id == order_id:
-                log.info(
-                    "\n%s\n%s",
-                    _bold(_green("✅ EXIT_FILL")),
-                    _dim(_j(user=self.user_id, symbol=sym, oid=order_id, avg=avg, filled=filled_qty)),
-                )
-        except Exception as e:
-            log.debug("ORDER_UPDATE_PARSE_FAIL | user=%s err=%s ou=%s", self.user_id, e, ou)
-
-# ---------------- Zerodha positions REST (reconcile) ----------------
-    async def _kite_positions(self) -> Dict[str, Any]:
-            """
-            Fetch Zerodha positions using REST (slower, but works after restart).
-            Returns dict with 'net' and 'day' arrays (Zerodha format).
-            """
-            def _fetch(api_key: str, access_token: str) -> Dict[str, Any]:
-                kite = KiteConnect(api_key=api_key)
-                kite.set_access_token(access_token)
-                return kite.positions()
-
-            res = await self.order_worker.submit(
-                _fetch,
-                api_key=self.api_key,
-                access_token=self.access_token,
-            )
-            return res or {}
-
     async def rehydrate_open_positions(self) -> List[str]:
-        """
-        Load OPEN/EXITING positions from Redis into memory so auto-exit monitoring works after restart.
-        Returns list of symbols restored.
-        """
         restored: List[str] = []
-
         try:
             rows = await self.store.list_positions(self.user_id)
         except Exception as e:
-            log.error("❌ REHYDRATE_FAIL | user=%s err=%s", self.user_id, e)
+            log.warning("REHYDRATE_FAIL | user=%s err=%s", self.user_id, e)
             return restored
 
-        # allowed dataclass keys
-        allowed = {f.name for f in _dc_fields(Position)}
-
-        for row in rows or []:
+        for r in rows or []:
             try:
-                sym = norm_symbol(str(row.get("symbol") or ""))
-                if not sym:
-                    continue
-
-                status = str(row.get("status") or "OPEN").upper()
+                status = str(r.get("status") or "").upper()
                 if status not in ("OPEN", "EXIT_CONDITIONS_MET", "EXITING"):
                     continue
 
-                data = {k: row.get(k) for k in allowed if k in row}
-                # force required defaults
-                data["symbol"] = sym
-                data["user_id"] = int(self.user_id)
-                data["status"] = "OPEN"  # keep as OPEN to allow monitoring
-
-                # If entry_price missing, keep 0.0 but monitoring will be limited
-                data["entry_price"] = float(row.get("entry_price") or 0.0)
-                data["qty"] = int(row.get("qty") or 0)
-                if data["qty"] <= 0:
+                sym = norm_symbol(r.get("symbol", ""))
+                if not sym:
                     continue
 
-                pos = Position(**data)  # type: ignore[arg-type]
+                data = {}
+                for k, f in Position.__dataclass_fields__.items():  # type: ignore[attr-defined]
+                    data[k] = r.get(k, f.default)
 
-                # ensure monitoring fields exist
-                if pos.product == "MIS":
-                    if pos.highest <= 0 and pos.entry_price > 0:
-                        pos.highest = pos.entry_price
-                    if pos.lowest <= 0 and pos.entry_price > 0:
-                        pos.lowest = pos.entry_price
+                data["user_id"] = int(self.user_id)
+                data["symbol"] = sym
 
+                pos = Position(**data)
                 self.positions[sym] = pos
-                self._exit_inflight[sym] = False
-                self._exit_signal_sent[sym] = False
                 restored.append(sym)
-
             except Exception as e:
-                log.debug("REHYDRATE_ROW_SKIP | user=%s err=%s row=%s", self.user_id, e, row)
+                log.debug("REHYDRATE_ROW_FAIL | user=%s err=%s row=%s", self.user_id, e, r)
 
-        log.info("♻️ REHYDRATE_DONE | user=%s restored=%s", self.user_id, restored)
         return restored
-    
+
+    # ---------------- broker helpers ----------------
+    async def _ensure_kite_ready(self) -> bool:
+        if not self.api_key or not self.access_token:
+            return False
+        if not self.kite:
+            self.kite = KiteConnect(api_key=self.api_key)
+            self.kite.set_access_token(self.access_token)
+        return True
+
+    async def _kite_positions(self) -> Dict[str, Any]:
+        ok = await self._ensure_kite_ready()
+        if not ok or not self.kite:
+            raise RuntimeError("ZERODHA_NOT_CONNECTED")
+        return await self.order_worker.submit(self.kite.positions)
+
+    async def _place_order(self, symbol: str, side: Side, qty: int, product: Product) -> Any:
+        ok = await self._ensure_kite_ready()
+        if not ok or not self.kite:
+            raise RuntimeError("ZERODHA_NOT_CONNECTED")
+        return await self.order_worker.submit(
+            self.kite.place_order,
+            variety="regular",
+            exchange="NSE",
+            tradingsymbol=str(symbol),
+            transaction_type=str(side),
+            quantity=int(qty),
+            product=str(product),
+            order_type="MARKET",
+        )
 
     async def _fetch_positions_avg(self, symbol: str) -> float:
-        """
-        Fetch average_price for given symbol from kite.positions() (REST).
-        """
-        def _fetch(api_key: str, access_token: str) -> Dict[str, Any]:
-            kite = KiteConnect(api_key=api_key)
-            kite.set_access_token(access_token)
-            return kite.positions()
-
-        data = await self.order_worker.submit(_fetch, api_key=self.api_key, access_token=self.access_token)
-        rows = []
+        symbol = norm_symbol(symbol)
         try:
-            rows = list(data.get("net") or []) + list(data.get("day") or [])
+            data = await self._kite_positions()
         except Exception:
-            rows = []
-
+            return 0.0
+        rows = list(data.get("net") or []) + list(data.get("day") or [])
         for r in rows:
             tsym = norm_symbol(str(r.get("tradingsymbol") or ""))
             if tsym != symbol:
@@ -790,309 +453,219 @@ class TradeEngine:
             qty = int(r.get("quantity") or 0)
             if qty == 0:
                 continue
-            avg = float(r.get("average_price") or 0.0)
-            if avg > 0:
-                return avg
-
+            avg = float(r.get("average_price") or r.get("buy_price") or 0.0)
+            return avg
         return 0.0
 
-    # =========================
-    # Chartink alert processing
-    # =========================
+    async def _fetch_ltp(self, symbol: str) -> float:
+        symbol = norm_symbol(symbol)
+        for _ in range(3):
+            tick = self.ticks.get(symbol)
+            if tick and float(tick.get("ltp", 0.0)) > 0:
+                return float(tick["ltp"])
+            ok = await self._ensure_kite_ready()
+            if ok and self.kite:
+                try:
+                    data = await self.order_worker.submit(self.kite.ltp, [f"NSE:{symbol}"])
+                    row = data.get(f"NSE:{symbol}") or {}
+                    last_price = float(row.get("last_price") or 0.0)
+                    if last_price > 0:
+                        return last_price
+                except Exception:
+                    pass
+            await asyncio.sleep(0.5)
+        return 0.0
+
     async def on_chartink_alert(self, alert_name: str, symbols: List[str], ts: str = "") -> List[Dict[str, Any]]:
-        out: List[Dict[str, Any]] = []
-
         alert_key = normalize_alert_key(alert_name)
-        log.info(
-            "\n%s\n%s",
-            _bold(_cyan("🔔 ALERT_RECEIVED")),
-            _dim(_j(user=self.user_id, alert=alert_name, key=alert_key, symbols=symbols)),
-        )
-
-        if await self.store.is_kill(self.user_id):
-            log.warning("🛑 KILL_SWITCH | user=%s alert=%s", self.user_id, alert_key)
-            return [{"symbol": _safe_symbol(s), "status": "REJECTED", "reason": "KILL_SWITCH"} for s in symbols]
-
         cfg_raw = await self.store.get_alert_config(self.user_id, alert_key)
-
         if not cfg_raw:
-            raw = (alert_name or "").strip()
-            variants = [
-                raw,
-                raw.lower(),
-                raw.replace(" ", "_").lower(),
-                raw.replace("_", " ").lower(),
-                normalize_alert_key(raw),
-            ]
-            for v in variants:
-                if not v:
-                    continue
-                cfg_raw = await self.store.get_alert_config(self.user_id, v)
-                if cfg_raw:
-                    log.info("ℹ️ CFG_FALLBACK_HIT | user=%s key=%s original=%s", self.user_id, v, alert_key)
-                    break
-
-        if not cfg_raw:
-            log.warning("⚠️ NO_CONFIG | user=%s alert=%s", self.user_id, alert_key)
-            return [{"symbol": _safe_symbol(s), "status": "SKIPPED", "reason": "NO_CONFIG"} for s in symbols]
+            return [{"symbol": s, "status": "ERROR", "reason": "CFG_MISSING"} for s in symbols]
 
         cfg = AlertConfig.from_dict(cfg_raw)
         if not cfg.enabled:
-            log.warning("⚠️ CFG_DISABLED | user=%s alert=%s", self.user_id, alert_key)
-            return [{"symbol": _safe_symbol(s), "status": "SKIPPED", "reason": "CFG_DISABLED"} for s in symbols]
+            return [{"symbol": s, "status": "SKIPPED", "reason": "DISABLED"} for s in symbols]
 
-        # Check entry time window
         if not _is_within_entry_window(cfg.entry_start_time, cfg.entry_end_time):
-            log.warning(
-                "⏰ OUTSIDE_ENTRY_WINDOW | user=%s alert=%s start=%s end=%s",
-                self.user_id, alert_key, cfg.entry_start_time, cfg.entry_end_time
-            )
-            return [{"symbol": _safe_symbol(s), "status": "REJECTED", "reason": "OUTSIDE_ENTRY_WINDOW"} for s in symbols]
+            return [{"symbol": s, "status": "SKIPPED", "reason": "ENTRY_WINDOW"} for s in symbols]
 
-        log.info(
-            "✅ CFG_OK | user=%s alert=%s dir=%s product=%s qty_mode=%s limit=%s sector_filter=%s topN=%s entry_window=%s-%s",
-            self.user_id,
-            alert_key,
-            cfg.direction,
-            cfg.product,
-            cfg.qty_mode,
-            cfg.trade_limit_per_day,
-            cfg.sector_filter_on,
-            cfg.top_n_sector,
-            cfg.entry_start_time,
-            cfg.entry_end_time,
-        )
-
-        for sym in symbols:
-            sym2 = _safe_symbol(sym)
-            if not sym2:
+        results: List[Dict[str, Any]] = []
+        for raw in symbols:
+            sym = norm_symbol(raw)
+            if not sym:
+                results.append({"symbol": raw, "status": "ERROR", "reason": "BAD_SYMBOL"})
                 continue
-            r = await self._try_enter(sym2, alert_key, cfg, alert_time=ts)
-            
-            # Inject latest tick data into result for immediate UI feedback
-            tick = self.ticks.get(sym2, {})
-            
-            # Fallback: If no tick, try REST quote (for fresh alerts)
-            if not tick or tick.get("ltp", 0.0) == 0:
-                try:
-                    # We need a kite instance.
-                    # This might fail if not connected, but worth a try for accurate UI.
-                    if self.api_key and self.access_token:
-                        # Temporary kite client just for quote? Or use a shared one?
-                        # Since we don't have a persistent kite client object in TradeEngine,
-                        # we can try to use a lightweight approach or just skip.
-                        # For now, let's rely on the main loop's Ticker. 
-                        # But wait, we can't easily get a quote without a kite instance.
-                        # Let's try to grab one from the store/creds if we really need it,
-                        # OR better: just checking ticks is usually enough if auto-sub works fast.
-                        # However, for the very first alert, auto-sub happens *after*.
-                        # So we SHOULD try to get a quote if possible.
-                        
-                        # Re-instantiate a temp kite for this (rate limits apply, be careful)
-                        # Only do this if we have absolutely NO data.
-                        k = KiteConnect(api_key=self.api_key)
-                        k.set_access_token(self.access_token)
-                        # "NSE:SBIN" format
-                        q_key = f"NSE:{sym2}"
-                        qs = k.quote([q_key])
-                        if qs and q_key in qs:
-                            d = qs[q_key]
-                            tick = {
-                                "ltp": d.get("last_price", 0.0),
-                                "close": d.get("ohlc", {}).get("close", 0.0)
-                            }
-                            # Only update cache if it's empty
-                            if sym2 not in self.ticks:
-                                self.ticks[sym2] = tick
-                except Exception as e:
-                    log.debug("⚠️ QUOTE_FALLBACK_FAIL | %s | %s", sym2, e)
 
-            r["ltp"] = float(tick.get("ltp", 0.0))
-            ltp = r["ltp"]
-            close = float(tick.get("close", 0.0))
-            r["pct"] = ((ltp - close) / close * 100.0) if close > 0 else 0.0
-            
-            out.append(r)
+            # sector filter
+            if cfg.sector_filter_on:
+                sector = self.sym_sector.get(sym, "")
+                ranked = self.get_sector_rank()
+                top_secs = [sec for sec, _ in ranked[: max(1, int(cfg.top_n_sector or 1))]]
+                if sector and sector not in top_secs:
+                    results.append({"symbol": sym, "status": "SKIPPED", "reason": "SECTOR_FILTER"})
+                    continue
 
-        entered = sum(1 for r in out if r.get("status") == "ENTERED")
-        skipped = sum(1 for r in out if r.get("status") == "SKIPPED")
-        rejected = sum(1 for r in out if r.get("status") == "REJECTED")
-        errors = sum(1 for r in out if r.get("status") == "ERROR")
+            # trade limit
+            allowed = await self.store.allow_trade(self.user_id, alert_key, int(cfg.trade_limit_per_day))
+            if not allowed:
+                results.append({"symbol": sym, "status": "SKIPPED", "reason": "TRADE_LIMIT"})
+                continue
 
-        log.info(
-            "\n%s\n%s",
-            _bold(_magenta("📊 ALERT_SUMMARY")),
-            _dim(_j(user=self.user_id, alert=alert_key, entered=entered, skipped=skipped, rejected=rejected, errors=errors, total=len(out))),
-        )
+            # already open
+            pos_existing = self.positions.get(sym)
+            if pos_existing and pos_existing.status in ("OPEN", "EXIT_CONDITIONS_MET", "EXITING"):
+                results.append({"symbol": sym, "status": "SKIPPED", "reason": "ALREADY_OPEN"})
+                continue
+            if await self.store.get_open(self.user_id, sym):
+                results.append({"symbol": sym, "status": "SKIPPED", "reason": "ALREADY_OPEN"})
+                continue
 
-        return out
+            ltp = await self._fetch_ltp(sym)
+            if ltp <= 0:
+                results.append({"symbol": sym, "status": "ERROR", "reason": "NO_LTP"})
+                continue
 
-    async def _try_enter(self, symbol: str, alert_key: str, cfg: AlertConfig, alert_time: str = "") -> Dict[str, Any]:
-        symbol = _safe_symbol(symbol)
-
-        if not self._sector_allows(symbol, cfg):
-            sector = self.sym_sector.get(symbol, "UNKNOWN")
-            log.info(
-                "🚫 SECTOR_BLOCK | user=%s alert=%s symbol=%s sector=%s topN=%s dir=%s",
-                self.user_id, alert_key, symbol, sector, cfg.top_n_sector, cfg.direction
-            )
-            return {"symbol": symbol, "status": "SKIPPED", "reason": "SECTOR_FILTER"}
-
-        if symbol in self.positions and self.positions[symbol].status in ("OPEN", "EXITING"):
-            log.info("⚠️ ALREADY_OPEN_MEM | user=%s alert=%s symbol=%s", self.user_id, alert_key, symbol)
-            return {"symbol": symbol, "status": "SKIPPED", "reason": "ALREADY_OPEN"}
-
-        if await self.store.get_open(self.user_id, symbol):
-            log.info("⚠️ ALREADY_OPEN_REDIS | user=%s alert=%s symbol=%s", self.user_id, alert_key, symbol)
-            return {"symbol": symbol, "status": "SKIPPED", "reason": "ALREADY_OPEN_REDIS"}
-
-        lk = await self.store.acquire_lock(self.user_id, symbol, "entry", ttl_ms=2000)
-        if lk != 1:
-            reason = "KILL" if lk == -2 else "ENTRY_LOCK_BUSY"
-            log.info("🔒 ENTRY_LOCK_FAIL | user=%s alert=%s symbol=%s reason=%s lk=%s", self.user_id, alert_key, symbol, reason, lk)
-            return {"symbol": symbol, "status": "SKIPPED", "reason": reason}
-
-        try:
-            ok = await self._ensure_kite_ready()
-            if not ok:
-                log.error(
-                    "❌ ZERODHA_NOT_CONNECTED | user=%s alert=%s symbol=%s api_key_len=%s token_len=%s",
-                    self.user_id, alert_key, symbol, len(self.api_key or ""), len(self.access_token or "")
-                )
-                return {"symbol": symbol, "status": "ERROR", "reason": "ZERODHA_NOT_CONNECTED"}
+            qty = 0
+            if cfg.qty_mode == "QTY":
+                qty = int(cfg.qty)
+            else:
+                if ltp <= 0:
+                    results.append({"symbol": sym, "status": "ERROR", "reason": "NO_LTP"})
+                    continue
+                qty = int(float(cfg.capital) / float(ltp))
+            if qty <= 0:
+                results.append({"symbol": sym, "status": "ERROR", "reason": "ZERO_QTY"})
+                continue
 
             side: Side = "BUY" if cfg.direction == "LONG" else "SELL"
-            product: Product = "CNC" if str(cfg.product).upper() == "CNC" else "MIS"
 
-            if product == "CNC" and side == "SELL":
-                log.warning("❌ CNC_SHORT_BLOCK | user=%s alert=%s symbol=%s", self.user_id, alert_key, symbol)
-                return {"symbol": symbol, "status": "REJECTED", "reason": "CNC_SHORT_NOT_ALLOWED"}
+            # place order
+            try:
+                oid = await self._place_order(sym, side, qty, cfg.product)
+            except Exception as e:
+                results.append({"symbol": sym, "status": "ERROR", "reason": f"ORDER_FAIL:{e}"})
+                continue
 
-            tick = self.ticks.get(symbol, {})
-            ltp = float(tick.get("ltp", 0.0))
+            entry = float(ltp or 0.0)
+            target_price = 0.0
+            sl_price = 0.0
+            if entry > 0 and cfg.target_pct > 0:
+                if side == "BUY":
+                    target_price = entry * (1.0 + float(cfg.target_pct) / 100.0)
+                else:
+                    target_price = entry * (1.0 - float(cfg.target_pct) / 100.0)
+            if entry > 0 and cfg.stop_loss_pct > 0:
+                if side == "BUY":
+                    sl_price = entry * (1.0 - float(cfg.stop_loss_pct) / 100.0)
+                else:
+                    sl_price = entry * (1.0 + float(cfg.stop_loss_pct) / 100.0)
 
-            if cfg.qty_mode == "CAPITAL" and ltp <= 0:
-                ltp = await self._wait_for_ltp(symbol, timeout_sec=0.80)
-
-            if cfg.qty_mode == "CAPITAL" and ltp <= 0:
-                qt = await self._rest_quote_tick(symbol)
-                ltp = float(qt.get("ltp", 0.0)) if qt else 0.0
-
-            if cfg.qty_mode == "CAPITAL" and ltp <= 0:
-                log.warning("⚠️ NO_LTP_CAPITAL | user=%s alert=%s symbol=%s", self.user_id, alert_key, symbol)
-                return {"symbol": symbol, "status": "SKIPPED", "reason": "NO_LTP_FOR_CAPITAL_QTY"}
-
-            qty = self._calc_qty(cfg, ltp if ltp > 0 else 1.0)
-            if qty <= 0:
-                log.warning("❌ BAD_QTY | user=%s alert=%s symbol=%s ltp=%.2f qty=%s", self.user_id, alert_key, symbol, ltp, qty)
-                return {"symbol": symbol, "status": "REJECTED", "reason": "BAD_QTY"}
-
-            allowed = await self.store.allow_trade(self.user_id, alert_key, cfg.trade_limit_per_day)
-            if not allowed:
-                log.info("⛔ TRADE_LIMIT | user=%s alert=%s symbol=%s limit=%s/day", self.user_id, alert_key, symbol, cfg.trade_limit_per_day)
-                return {"symbol": symbol, "status": "SKIPPED", "reason": "TRADE_LIMIT"}
-
-            trade_id = uuid.uuid4().hex[:12]
             pos = Position(
-                trade_id=trade_id,
+                trade_id=uuid.uuid4().hex[:12],
                 user_id=self.user_id,
-                symbol=symbol,
+                symbol=sym,
                 alert_name=alert_key,
                 side=side,
-                product=product,
-                qty=int(qty),
-                entry_price=float(ltp),
-                alert_time=str(alert_time),
+                product=cfg.product,
+                qty=qty,
+                entry_price=entry,
+                entry_order_id=str(oid),
+                target_price=target_price,
+                sl_price=sl_price,
+                tsl_pct=float(cfg.trailing_sl_pct),
+                highest=entry if side == "BUY" else 0.0,
+                lowest=entry if side == "SELL" else 0.0,
+                status="OPEN",
+                alert_time=str(ts or ""),
                 created_ts=time.time(),
                 updated_ts=time.time(),
-            )
-            pos.cfg_target_pct=float(cfg.target_pct)
-            pos.cfg_sl_pct=float(cfg.stop_loss_pct)
-            pos.cfg_tsl_pct = float(cfg.trailing_sl_pct)
-            pos.sector = self.sym_sector.get(symbol, "")  # Add sector info
-
-
-            # MIS monitoring setup
-            if product == "MIS" and ltp > 0:
-                entry = float(ltp)
-                if side == "BUY":
-                    pos.target_price = entry * (1.0 + float(cfg.target_pct) / 100.0)
-                    pos.sl_price = entry * (1.0 - float(cfg.stop_loss_pct) / 100.0)
-                    pos.highest = entry
-                else:
-                    pos.target_price = entry * (1.0 - float(cfg.target_pct) / 100.0)
-                    pos.sl_price = entry * (1.0 + float(cfg.stop_loss_pct) / 100.0)
-                    pos.lowest = entry
-                pos.tsl_pct = float(cfg.trailing_sl_pct)
-
-            sep = "─" * 90
-            sym_tag = _bg_yellow(f" {symbol} ")
-
-            log.info(
-                "\n%s\n%s\n%s",
-                sep,
-                _bold(_cyan("📤 ENTRY_SEND")) + " " + sym_tag + " " + _dim(f"user={self.user_id} alert={alert_key} trade={trade_id}"),
-                _dim(f"{symbol}  {_fmt_side(side)} qty={qty} {product}  ltp={ltp:.2f}  | tgt={pos.target_price:.2f} sl={pos.sl_price:.2f} tsl%={pos.tsl_pct:.2f}"),
+                cfg_target_pct=float(cfg.target_pct),
+                cfg_sl_pct=float(cfg.stop_loss_pct),
+                cfg_tsl_pct=float(cfg.trailing_sl_pct),
+                ltp=entry,
+                pnl=0.0,
+                sector=self.sym_sector.get(sym, ""),
             )
 
-
+            self.positions[sym] = pos
             try:
-                oid = await self._place_order(symbol, side, qty, product)
-            except Exception as e:
-                log.error("❌ ENTRY_ORDER_FAIL | user=%s alert=%s symbol=%s err=%s", self.user_id, alert_key, symbol, e)
-                # If order placement fails, square-off any existing exposure, then enable kill switch.
-                try:
-                    await self.trigger_kill_switch(
-                        reason=f"ENTRY_ORDER_FAIL:{alert_key}:{symbol}",
-                        squareoff_first=True,
-                    )
-                except Exception as e2:
-                    log.error("KILL_SWITCH_TRIGGER_FAIL | user=%s err=%s", self.user_id, e2)
-                return {"symbol": symbol, "status": "ERROR", "reason": str(e)}
-
-            try:
-                await self.store.mark_open(self.user_id, symbol, str(oid))
-            except Exception as e:
-                log.debug("📝 MARK_OPEN_FAIL | user=%s symbol=%s err=%s", self.user_id, symbol, e)
-
-            pos.entry_order_id = str(oid)
-            pos.status = "OPEN"
-            pos.ltp = float(ltp)
-            pos.updated_ts = time.time()
-
-            self.positions[symbol] = pos
-            try:
-                await self.store.upsert_position(self.user_id, symbol, pos.to_public())
-            except Exception as e:
-                log.debug("📝 UPSERT_POS_FAIL | user=%s symbol=%s err=%s", self.user_id, symbol, e)
-
-            sep = "─" * 90
-            sym_tag = _bg_yellow(f" {symbol} ")
-
-            log.info(
-                "\n%s\n%s\n%s\n%s",
-                sep,
-                _bold(_green("✅ ENTRY_OK")) + " " + sym_tag + " " + _dim(f"user={self.user_id} alert={alert_key} trade={trade_id}"),
-                _dim(f"oid={str(oid)}  {symbol}  {_fmt_side(side)} qty={qty} {product}"),
-                _dim(_fmt_pos(pos)),
-            )
-
-
-            return {
-                "symbol": symbol,
-                "status": "ENTERED",
-                "trade_id": trade_id,
-                "order_id": str(oid),
-                "qty": int(qty),
-                "side": side,
-                "product": product,
-            }
-
-        finally:
-            try:
-                await self.store.release_lock(self.user_id, symbol, "entry")
+                await self.store.upsert_position(self.user_id, sym, pos.to_public())
+                await self.store.mark_open(self.user_id, sym, pos.trade_id)
             except Exception:
                 pass
+
+            tick = self.ticks.get(sym) or {}
+            close = float(tick.get("close") or 0.0)
+            pct = ((entry - close) / close * 100.0) if close > 0 else 0.0
+            tsl_line = 0.0
+            if entry > 0 and cfg.trailing_sl_pct > 0:
+                if side == "BUY":
+                    tsl_line = entry * (1.0 - float(cfg.trailing_sl_pct) / 100.0)
+                else:
+                    tsl_line = entry * (1.0 + float(cfg.trailing_sl_pct) / 100.0)
+
+            results.append(
+                {
+                    "symbol": sym,
+                    "status": "ENTERED",
+                    "reason": "ORDER_OK",
+                    "side": side,
+                    "qty": qty,
+                    "ltp": entry,
+                    "pct": pct,
+                    "entry": entry,
+                    "target": target_price,
+                    "stoploss": sl_price,
+                    "tsl": tsl_line,
+                }
+            )
+
+        return results
+
+    async def on_order_update(self, data: Dict[str, Any]) -> None:
+        """
+        Handle Kite order update callbacks.
+        Keep it safe: update in-memory/redis positions if relevant.
+        """
+        try:
+            order_id = str(data.get("order_id") or "")
+            status = str(data.get("status") or "").upper()
+            symbol = norm_symbol(str(data.get("tradingsymbol") or ""))
+            if not symbol:
+                return
+
+            pos = self.positions.get(symbol)
+            if not pos:
+                return
+
+            # Entry order updates
+            if order_id and pos.entry_order_id and order_id == pos.entry_order_id:
+                if status in ("COMPLETE", "FILLED"):
+                    avg = float(data.get("average_price") or data.get("price") or 0.0)
+                    if avg > 0:
+                        pos.entry_price = avg
+                    pos.updated_ts = time.time()
+                    await self.store.upsert_position(self.user_id, symbol, pos.to_public())
+                elif status in ("REJECTED", "CANCELLED"):
+                    pos.status = "ERROR"
+                    pos.exit_reason = f"ENTRY_{status}"
+                    pos.updated_ts = time.time()
+                    await self.store.upsert_position(self.user_id, symbol, pos.to_public())
+                return
+
+            # Exit order updates
+            if order_id and pos.exit_order_id and order_id == pos.exit_order_id:
+                if status in ("COMPLETE", "FILLED"):
+                    pos.status = "CLOSED"
+                    pos.updated_ts = time.time()
+                    await self.store.upsert_position(self.user_id, symbol, pos.to_public())
+                elif status in ("REJECTED", "CANCELLED"):
+                    pos.status = "ERROR"
+                    pos.exit_reason = f"EXIT_{status}"
+                    pos.updated_ts = time.time()
+                    await self.store.upsert_position(self.user_id, symbol, pos.to_public())
+        except Exception as e:
+            log.debug("ORDER_UPDATE_FAIL | user=%s err=%s data=%s", self.user_id, e, data)
 
     # =========================
     # Tick ingestion + monitoring (HOT PATH)
@@ -1306,51 +879,36 @@ class TradeEngine:
         if now - last >= self.monitor_log_interval_sec:
             self._mon_last_log[symbol] = now
 
-            # -----------------------------
-            # ✅ MONITOR LOG (BOXED)
-            # -----------------------------
-            sym_tag = _bg_blue(f" {symbol} ") 
-            
-            # Format sector badge if available
-            sec_tag = ""
-            if hasattr(pos, "sector") and pos.sector:
-                sec_tag = " " + _bg_magenta(f" {pos.sector} ") 
+            if not reason:
+                # Suppress continuous monitor logs; only log on exit triggers.
+                return pos
 
-            title = _bold(_cyan("📈 MONITOR")) + " " + sym_tag + sec_tag + " " + _dim(f"alert={pos.alert_name}")
-
-            line1 = (
-                f"{_bold(_cyan(symbol))}  {_fmt_side(pos.side)} {pos.qty} qty {pos.product}  "
-                f"entry={pos.entry_price:.2f}  ltp={pos.ltp:.2f}  pnl={_fmt_pnl(pos.pnl)}"
+            log.info(
+                "EXIT_TRIGGER | %s | reason=%s | side=%s qty=%s product=%s",
+                symbol,
+                reason,
+                pos.side,
+                pos.qty,
+                pos.product,
             )
-            line2 = (
-                f"tgt={pos.target_price:.2f}  sl={pos.sl_price:.2f}  "
-                f"hi={pos.highest:.2f}  lo={pos.lowest:.2f}  tsl%={pos.tsl_pct:.2f}"
+            exit_at = float(pos.ltp)
+            if reason == "TRAILING_SL" and tsl_line > 0:
+                exit_at = float(tsl_line)
+            elif reason == "STOP_LOSS" and float(pos.sl_price) > 0:
+                exit_at = float(pos.sl_price)
+            elif reason == "TARGET" and float(pos.target_price) > 0:
+                exit_at = float(pos.target_price)
+
+            log.info(
+                "entry=%.2f ltp=%.2f exit_at=%.2f pnl=%.2f | tgt=%.2f sl=%.2f tsl=%.2f",
+                float(pos.entry_price),
+                float(pos.ltp),
+                float(exit_at),
+                float(pos.pnl),
+                float(pos.target_price),
+                float(pos.sl_price),
+                float(tsl_line),
             )
-            line3 = (
-                f"dist: tgt={_fmt_pct(tgt_dist)}  sl={_fmt_pct(sl_dist)}  tsl={_fmt_pct(tsl_dist)}  "
-                f"tsl_line={tsl_line:.2f}"
-            )
-
-            if reason:
-                status = _bold(_magenta(f"🧨 EXIT_TRIGGER={reason}"))
-            elif near_tags:
-                status = _yellow("⚠️ " + " ".join(near_tags))
-            else:
-                status = _dim("ok")
-
-            # ---- build box (NO double borders) ----
-            lines = [title, line1, _dim(line2), _dim(line3), status]
-            w = max(_vis_len(x) for x in lines)
-
-            top = "╔" + "═" * (w + 2) + "╗"
-            bot = "╚" + "═" * (w + 2) + "╝"
-
-            boxed = [top]
-            for s in lines:
-                boxed.append("║ " + _pad(s, w) + " ║")
-            boxed.append(bot)
-
-            log.info("\n" + "\n".join(boxed))
 
         # -----------------------------
         # ✅ LOG when condition fulfilled (only once) + trigger exit
@@ -1371,27 +929,14 @@ class TradeEngine:
                     log.debug("REDIS_UPDATE_FAIL | symbol=%s err=%s", symbol, e)
                 
                 log.info(
-                    "\n%s\n%s",
-                    _bold(_magenta("✅ EXIT_CONDITION_MET")),
-                    _dim(
-                        _j(
-                            user=self.user_id,
-                            trade=pos.trade_id,
-                            alert=pos.alert_name,
-                            symbol=symbol,
-                            reason=reason,
-                            ltp=pos.ltp,
-                            entry=pos.entry_price,
-                            pnl=pos.pnl,
-                            tgt=pos.target_price,
-                            sl=pos.sl_price,
-                            tsl_line=tsl_line,
-                            hi=pos.highest,
-                            lo=pos.lowest,
-                            qty=pos.qty,
-                            side=pos.side,
-                        )
-                    ),
+                    "✅ EXIT_CONDITION_MET | %s | reason=%s | side=%s qty=%s | entry=%.2f ltp=%.2f pnl=%.2f",
+                    symbol,
+                    reason,
+                    pos.side,
+                    pos.qty,
+                    float(pos.entry_price),
+                    float(pos.ltp),
+                    float(pos.pnl),
                 )
 
             if not self._exit_inflight.get(symbol):
@@ -1407,6 +952,31 @@ class TradeEngine:
                 log.debug("⏳ EXIT_DEBOUNCE | user=%s symbol=%s reason=%s", self.user_id, symbol, reason)
 
         return pos
+
+    def _update_sector_perf(self, symbol: str, pct: float) -> None:
+        sector = self.sym_sector.get(symbol)
+        if not sector:
+            return
+        prev = self.sym_pct.get(symbol)
+        if prev is None:
+            self.sym_pct[symbol] = pct
+            self.sector_sum[sector] = self.sector_sum.get(sector, 0.0) + pct
+            self.sector_cnt[sector] = self.sector_cnt.get(sector, 0) + 1
+            return
+        if prev == pct:
+            return
+        self.sym_pct[symbol] = pct
+        self.sector_sum[sector] = self.sector_sum.get(sector, 0.0) + (pct - prev)
+
+    def get_sector_rank(self) -> List[tuple]:
+        ranked: List[tuple] = []
+        for sec, total in self.sector_sum.items():
+            cnt = self.sector_cnt.get(sec, 0)
+            if cnt <= 0:
+                continue
+            ranked.append((sec, total / cnt))
+        ranked.sort(key=lambda x: x[1], reverse=True)
+        return ranked
 
 
     def _maybe_log_monitor(self, pos: Position) -> None:
@@ -1479,8 +1049,9 @@ class TradeEngine:
         tag_str = ""
         if hit_tags:
             tag_str += " ✅" + ",".join(hit_tags)
-        if near_tags:
-            tag_str += " ⚠️  " + ",".join(near_tags)
+        else:
+            # Suppress continuous monitor logs; only log on hits.
+            return
 
         log.info(
             "📈 MONITOR | user=%s trade=%s alert=%s | %s | "
@@ -1607,10 +1178,8 @@ class TradeEngine:
             exit_side = "SELL" if pos.side == "BUY" else "BUY"
 
             log.info(
-                "🚪 EXIT_START | user=%s trade=%s alert=%s reason=%s | exit_side=%s | %s",
-                self.user_id,
-                pos.trade_id,
-                pos.alert_name,
+                "🚪 EXIT_START | %s | reason=%s | exit_side=%s | %s",
+                symbol,
                 reason,
                 exit_side,
                 _fmt_pos(pos),
@@ -1638,12 +1207,9 @@ class TradeEngine:
                     log.debug("📝 EXIT_UPSERT_FAIL | user=%s symbol=%s err=%s", self.user_id, symbol, e)
 
                 log.info(
-                    "📤 EXIT_ORDER_SEND | user=%s trade=%s symbol=%s | %s %s qty=%s product=%s",
-                    self.user_id,
-                    pos.trade_id,
+                    "📤 EXIT_ORDER_SEND | %s | %s qty=%s product=%s",
                     symbol,
                     exit_side,
-                    symbol,
                     pos.qty,
                     pos.product,
                 )
@@ -1655,11 +1221,8 @@ class TradeEngine:
                     pos.updated_ts = time.time()
 
                     log.info(
-                        "✅ EXIT_ORDER_OK | user=%s trade=%s symbol=%s exit_oid=%s reason=%s | pnl=%.2f",
-                        self.user_id,
-                        pos.trade_id,
+                        "✅ EXIT_ORDER_OK | %s | reason=%s | pnl=%.2f",
                         symbol,
-                        str(oid),
                         reason,
                         float(pos.pnl),
                     )
@@ -1670,7 +1233,7 @@ class TradeEngine:
                         # Remove from memory
                         if symbol in self.positions:
                             del self.positions[symbol]
-                        log.info("🗑️ POSITION_DELETED | user=%s symbol=%s (CLOSED)", self.user_id, symbol)
+                        log.info("🗑️ POSITION_DELETED | %s (CLOSED)", symbol)
                         
                         # ✅ Update alert status in history
                         if pos.alert_time:
@@ -1842,4 +1405,5 @@ class TradeEngine:
 
             await self._enable_kill_switch(reason=reason)
             return {"ok": True, "enabled": True, "squareoff": sq}
+
 

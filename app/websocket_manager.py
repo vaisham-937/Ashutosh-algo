@@ -30,7 +30,9 @@ class WebSocketManager:
 
         # Throttle tick broadcasts: max N updates/sec per user per symbol
         self._last_tick_time: Dict[Tuple[int, str], float] = {}
-        self._tick_throttle_sec: float = 0.10  # 100ms => 10 updates/sec
+        self._tick_throttle_sec: float = 0.05  # 50ms => 20 updates/sec
+        self._last_log_time: Dict[Tuple[int, str], float] = {}
+        self._log_throttle_sec: float = 1.0  # max 1 log/sec per (user,type)
 
     # -----------------------
     # Loop binding (important)
@@ -171,9 +173,15 @@ class WebSocketManager:
                 if not self._conns[uid]:
                     self._conns.pop(uid, None)
 
-        # Reduce console noise: log only non-tick
+        # Reduce console noise: log only non-tick, throttled
         if payload.get("type") != "tick":
-            print("[WS] broadcast user", uid, "clients", len(conns), "type", payload.get("type"))
+            ptype = str(payload.get("type"))
+            key = (uid, ptype)
+            now = time.time()
+            last = self._last_log_time.get(key, 0.0)
+            if now - last >= self._log_throttle_sec:
+                self._last_log_time[key] = now
+                print("[WS] broadcast user", uid, "clients", len(conns), "type", ptype)
 
     def broadcast_nowait(self, user_id: int, payload: Dict[str, Any]) -> None:
         """

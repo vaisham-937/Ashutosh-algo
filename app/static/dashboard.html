@@ -11,11 +11,12 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@500;600;700&display=swap"
     rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
   <style>
     :root {
       /* DARK TEAL THEME (User Preference) */
-      --bg: #3e3f3f;
-      --cyan: #56af09;
+      --bg: #1e3434;
+      --cyan: #2c5e01;
       --cyan-dim: rgba(34, 211, 238, 0.1);
       --glass: rgba(0, 0, 0, 0.2);
       --glass-border: rgba(255, 255, 255, 0.1);
@@ -332,7 +333,7 @@
 
     /* Tables - Dark Theme Override */
     .table-container {
-      border-radius: 1rem;
+      border-radius: 0;
       overflow: hidden;
       border: 1px solid rgba(255, 255, 255, 0.1);
       background: rgba(15, 23, 42, 0.6);
@@ -353,7 +354,8 @@
       text-transform: uppercase;
       font-size: 0.75rem;
       letter-spacing: 0.05em;
-      padding: 1rem;
+      padding: 0.22rem 0.5rem;
+      line-height: 1.0;
       text-align: left;
     }
 
@@ -363,6 +365,13 @@
       color: #f1f5f9;
       /* Slate 100 */
       font-size: 0.9rem;
+    }
+
+    /* Compact body rows for more visible entries */
+    .table-container tbody td {
+      padding: 0.22rem 0.45rem !important;
+      line-height: 1.05;
+      font-size: 0.74rem;
     }
 
     tr:last-child td {
@@ -454,6 +463,250 @@
     nav .text-slate-400 {
       color: #94a3b8 !important;
     }
+
+    /* Top bar sizing guardrails (responsive, prevents oversized buttons on large screens) */
+    .topbar-row {
+      height: clamp(46px, 4.5vw, 60px);
+    }
+
+    nav .topbar-actions {
+      gap: clamp(8px, 1vw, 14px);
+    }
+
+    nav .btn {
+      font-size: clamp(9px, 0.75vw, 11px) !important;
+      padding: clamp(3px, 0.5vw, 7px) clamp(7px, 0.85vw, 11px) !important;
+      border-radius: clamp(5px, 0.7vw, 8px) !important;
+      white-space: nowrap;
+    }
+
+    nav .topbar-actions .action-btn {
+      font-size: clamp(9px, 0.75vw, 11px) !important;
+      padding: clamp(2px, 0.45vw, 6px) clamp(7px, 0.8vw, 11px) !important;
+      border-radius: clamp(6px, 0.75vw, 9px) !important;
+    }
+
+    nav .topbar-actions .cfg-btn {
+      padding-top: clamp(2px, 0.35vw, 5px) !important;
+      padding-bottom: clamp(2px, 0.35vw, 5px) !important;
+    }
+
+    nav #zbadge,
+    nav #wsbadge {
+      font-size: clamp(8px, 0.7vw, 9px);
+      padding: clamp(3px, 0.5vw, 7px) clamp(7px, 0.85vw, 11px);
+    }
+
+    /* WS status pill */
+    .ws-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 1px 10px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 13px;
+      line-height: 1;
+    }
+
+    .ws-pill svg {
+      width: 13px;
+      height: 13px;
+      flex: 0 0 auto;
+    }
+
+    .ws-pill svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .ws-live {
+      background: linear-gradient(135deg, #e9fff6 0%, #dff9ef 100%);
+      color: #0b6b34;
+      border: 1px solid rgba(16, 185, 129, 0.45);
+      box-shadow: 0 6px 18px rgba(16, 185, 129, 0.25);
+    }
+
+    .ws-offline {
+      background: #ffecec;
+      color: #c81e1e;
+      border: 1px solid rgba(248, 113, 113, 0.45);
+      box-shadow: 0 6px 16px rgba(248, 113, 113, 0.18);
+    }
+
+    /* Credentials modal compact sizing */
+    #credModal .cred-card {
+      max-height: 90vh;
+      overflow: auto;
+    }
+
+    #cfgModal .cfg-card {
+      max-height: 90vh;
+      overflow: auto;
+    }
+
+    #cfgModal .input-field {
+      padding: 0.4rem 0.6rem;
+      font-size: 0.8rem;
+    }
+
+    #cfgModal label {
+      margin-bottom: 0.25rem !important;
+      font-size: 0.65rem !important;
+    }
+
+    /* Make time picker icon visible */
+    #cfgModal input[type="time"] {
+      color-scheme: dark;
+      padding-right: 2.2rem;
+    }
+
+    #cfgModal input[type="time"]::-webkit-calendar-picker-indicator {
+      filter: invert(1) brightness(3) saturate(0) drop-shadow(0 0 2px rgba(255, 255, 255, 0.6));
+      opacity: 1;
+    }
+
+    nav .user-pill {
+      padding: clamp(3px, 0.5vw, 7px) clamp(7px, 0.85vw, 11px);
+      font-size: clamp(9px, 0.7vw, 10px);
+    }
+
+    nav .logo-box {
+      width: clamp(34px, 3vw, 40px) !important;
+      height: clamp(34px, 3vw, 40px) !important;
+    }
+
+    .logo-wrap {
+      margin-left: 8px;
+    }
+
+    .logo-box svg {
+      filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4));
+    }
+
+              <span class="logo-dot"></span>
+              <span class="logo-bar"></span>
+              <span class="logo-one"></span>
+      font-size: clamp(14px, 1.4vw, 16px) !important;
+    }
+
+    /* iOneAlgo logo mark */
+    .logo-box {
+      position: relative;
+    }
+
+    .logo-dot,
+    .logo-bar,
+    .logo-one {
+      position: absolute;
+      background: #ffffff;
+      border-radius: 999px;
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.25);
+    }
+
+    .logo-dot {
+      width: 18%;
+      height: 18%;
+      top: 18%;
+      left: 26%;
+    }
+
+    .logo-bar {
+      width: 18%;
+      height: 46%;
+      top: 38%;
+      left: 26%;
+    }
+
+    .logo-one {
+      width: 18%;
+      height: 62%;
+      top: 22%;
+      right: 24%;
+    }
+
+    nav .brand-title {
+      font-size: clamp(16px, 1.7vw, 19px);
+    }
+
+    nav .brand-sub {
+      font-size: clamp(8px, 0.75vw, 9px);
+    }
+
+    /* Keep header metrics on a single line */
+    .metrics-row {
+      flex-wrap: nowrap;
+      gap: 0.5rem;
+    }
+
+    /* Net PnL pill */
+    .net-pnl-pill {
+      background: #e8fff1;
+      color: #0f7a3a;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      box-shadow: 0 6px 18px rgba(16, 185, 129, 0.25);
+      border-radius: 999px;
+      padding: 5px 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .net-pnl-pill .pnl-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: #127c3c;
+      opacity: 0.9;
+    }
+
+    .net-pnl-pill .pnl-value {
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 0.01em;
+    }
+
+    /* Screen-specific sizing to keep top bar compact */
+    @media (max-width: 640px) {
+      .topbar-row {
+        height: 48px;
+      }
+
+      nav .btn {
+        font-size: 10px !important;
+        padding: 4px 8px !important;
+      }
+
+      nav #zbadge,
+      nav #wsbadge {
+        font-size: 9px;
+        padding: 4px 8px;
+      }
+    }
+
+    @media (min-width: 1024px) and (max-width: 1439px) {
+      .topbar-row {
+        height: 56px;
+      }
+    }
+
+    @media (min-width: 1440px) {
+      .topbar-row {
+        height: 58px;
+      }
+
+      nav .btn {
+        font-size: 11px !important;
+        padding: 5px 10px !important;
+      }
+
+      nav #zbadge,
+      nav #wsbadge {
+        font-size: 10px;
+        padding: 5px 10px;
+      }
+    }
   </style>
 </head>
 
@@ -463,56 +716,77 @@
   <div id="stars" class="fixed inset-0 pointer-events-none z-0"></div>
 
   <nav class="fixed top-0 w-full z-50 bg-[#0f172a]/95 backdrop-blur-xl border-b border-white/10 shadow-lg">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex items-center justify-between h-20">
+    <div class="max-w-none w-full px-0">
+      <div class="topbar-row flex items-center justify-between">
         <!-- Logo -->
-        <div class="flex items-center gap-3">
+        <div class="logo-wrap flex items-center gap-3">
           <div class="relative group">
             <div
               class="absolute -inset-1 bg-gradient-to-r from-cyan-400 to-blue-600 rounded-lg blur opacity-40 group-hover:opacity-75 transition duration-200">
             </div>
             <div
-              class="relative bg-gradient-to-br from-cyan-400 to-blue-600 border border-white/10 rounded-lg w-10 h-10 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-              <span class="text-white font-bold text-xl font-[Outfit]">A</span>
+              class="logo-box relative bg-transparent border-0 rounded-none w-10 h-10 flex items-center justify-center shadow-none">
+              <svg class="w-10 h-10" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#0ea5e9" />
+                    <stop offset="100%" stop-color="#1e40af" />
+                  </linearGradient>
+                  <linearGradient id="arrowGrad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="#0ea5e9" />
+                    <stop offset="100%" stop-color="#1e3a8a" />
+                  </linearGradient>
+                </defs>
+                <!-- bars -->
+                <rect x="10" y="38" width="6" height="12" rx="2" fill="url(#barGrad)" />
+                <rect x="20" y="32" width="6" height="18" rx="2" fill="url(#barGrad)" />
+                <rect x="30" y="26" width="6" height="24" rx="2" fill="url(#barGrad)" />
+                <rect x="40" y="18" width="6" height="32" rx="2" fill="url(#barGrad)" />
+                <!-- arrow -->
+                <path d="M12 34 C22 26, 30 22, 44 14" stroke="url(#arrowGrad)" stroke-width="4" stroke-linecap="round" fill="none" />
+                <path d="M46 10 L52 20 L40 18 Z" fill="url(#arrowGrad)" />
+              </svg>
             </div>
           </div>
           <div class="flex flex-col">
-            <span class="text-2xl font-bold text-white tracking-tight leading-none font-[Outfit]">
-              AshAlgo
+            <span class="brand-title text-2xl font-bold font-serif text-white tracking-tight leading-none font-[Outfit]">
+              IoneAlgo
             </span>
-            <span class="text-[10px] font-bold text-cyan-400 tracking-[0.2em] leading-none mt-0.5">PRO TERMINAL</span>
+            <span
+              class="brand-sub text-[10px] font-bold text-cyan-400 tracking-[0.2em] leading-none mt-0.5">PRO
+              TERMINAL</span>
           </div>
         </div>
 
         <!-- Right Side -->
-        <div class="flex items-center gap-3 lg:gap-5">
+        <div class="topbar-actions flex items-center gap-3 lg:gap-5">
           <!-- User ID Pill -->
           <div
-            class="hidden lg:flex items-center px-4 py-1.5 rounded-full bg-white/5 border border-white/10 gap-2.5 transition-all duration-300 hover:bg-white/10 hover:border-white/20 select-none">
+            class="user-pill hidden lg:flex items-center px-3 py-1 rounded-full bg-white/5 border border-white/10 gap-2 transition-all duration-300 hover:bg-white/10 hover:border-white/20 select-none">
             <div
               class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0 shadow-[0_0_8px_rgba(16,185,129,0.5)]">
             </div>
-            <span class="text-xs font-bold text-slate-200 tracking-wide">USER ID: {{ USER_ID }}</span>
+            <span class="text-[10px] font-bold text-slate-200 tracking-wide">USER ID: {{ USER_ID }}</span>
           </div>
 
           <!-- Kite Status -->
           <div id="zbadge"
-            class="hidden md:flex items-center px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 gap-2">
+            class="hidden md:flex items-center px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 gap-2">
             <div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-            <span class="text-[10px] font-bold tracking-widest uppercase">KITE: CONNECTED</span>
+            <span class="text-[9px] font-bold tracking-widest uppercase">KITE: CONNECTED</span>
           </div>
 
           <!-- WS Status -->
           <div id="wsbadge"
-            class="hidden md:flex items-center px-4 py-1.5 rounded-full bg-slate-100 border border-slate-200 gap-2">
+            class="hidden md:flex items-center px-3 py-1 rounded-full bg-slate-100 border border-slate-200 gap-2">
             <div class="w-1.5 h-1.5 rounded-full bg-slate-500"></div>
-            <span class="text-[10px] font-bold text-slate-500 tracking-widest uppercase">WS: LIVE</span>
+            <span class="text-[9px] font-bold text-slate-500 tracking-widest uppercase">WS: LIVE</span>
           </div>
 
           <!-- Refresh / Restart Trading Service -->
           <button id="restartTradingBtn" onclick="restartTradingService()"
             class="hidden sm:flex btn px-4 py-1.5 rounded-lg bg-slate-500/10 text-slate-200 border border-slate-500/20 hover:bg-slate-500/20 transition-all font-bold text-xs uppercase tracking-wider">
-            ⟳ Refresh
+            ⟳ Refresh System
           </button>
 
           <!-- Kill Switch -->
@@ -523,22 +797,22 @@
 
           <!-- Square Off All -->
           <button onclick="exitAllPositions()"
-            class="hidden sm:flex btn px-4 py-1.5 rounded-lg bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-purple-500/20 hover:shadow-purple-500/40 border border-white/10 transition-all">
+            class="cfg-btn action-btn hidden sm:flex btn px-4 py-1.5 rounded-lg bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-purple-500/20 hover:shadow-purple-500/40 border border-white/10 transition-all">
             Square Off All
           </button>
 
           <!-- Configure Alert -->
           <button onclick="openCfg()"
-            class="btn px-4 py-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 border border-white/10 transition-all">
+            class="cfg-btn action-btn btn px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold text-sm uppercase tracking-wider shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 border border-white/10 transition-all">
             + Configure Alert
           </button>
 
           <!-- Action Tiles (Settings & Logout) -->
-          <div class="flex items-center gap-2 border-l border-white/10 pl-4">
+          <div class="flex items-center gap-2 border-l border-white/10 pl-4 pr-2">
 
             <!-- Settings Tile -->
             <button onclick="openCred()" title="Broker Credentials"
-              class="p-2.5 rounded-lg bg-white/5 hover:bg-cyan-500/20 text-slate-400 hover:text-cyan-400 border border-white/5 hover:border-cyan-500/30 transition-all duration-300 group">
+              class="p-2 rounded-lg bg-white/5 hover:bg-cyan-500/20 text-slate-400 hover:text-cyan-400 border border-white/5 hover:border-cyan-500/30 transition-all duration-300 group">
               <svg class="w-5 h-5 group-hover:rotate-90 transition-transform duration-500" fill="none"
                 viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -558,29 +832,33 @@
   </nav>
 
   <!-- Main Content (Stacked) -->
-  <main class="max-w-7xl mx-auto px-6 py-36 pb-12 space-y-12">
+  <main class="max-w-none w-full mx-auto px-0 pt-16 pb-6 space-y-6">
 
-    <!-- Alerts Section -->
+    <!-- Combined Signals + Positions -->
     <section class="animate-enter">
-      <div class="flex items-center justify-between mb-6">
-        <div class="flex items-center gap-4">
-          <div class="p-2.5 rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/20">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+      <div class="flex items-center justify-between mb-1">
+        <div class="flex items-center gap-2">
+          <div
+            class="p-1 rounded-md bg-slate-900/70 text-slate-100 border border-white/10">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M3 3v18h18M7 13l4-4 3 3 5-6"></path>
             </svg>
           </div>
-          <div>
-            <h2 class="text-3xl font-extrabold text-slate-1000">Live Chartink Signals</h2>
-            <div class="flex items-center gap-2 mt-1">
-              <span id="alertCount"
-                class="text-xs font-semibold text-orange-600 bg-orange-100 px-2 py-1 rounded border border-orange-200">0
-                Alerts</span>
-              <span class="text-xs text-white-600">Incoming from Chartink</span>
-            </div>
-          </div>
+          <h2 class="text-lg font-semibold text-slate-200 font-serif">Live Chartink Alerts & Positions</h2>
         </div>
-        <div class="flex gap-2">
-          <button onclick="loadAlerts()" class="btn btn-light text-xs">
+        <div class="metrics-row flex items-center gap-2">
+          <span id="alertCount"
+            class="text-[10px] font-bold text-blue-100 bg-blue-900/70 px-2 py-1 rounded border border-blue-700/40">0
+            Alerts</span>
+          <span id="posCount"
+            class="badge bg-emerald-500/15 text-emerald-200 border-emerald-400/40 px-2.5 py-1 text-[10px] font-bold">0
+            Active Pos</span>
+          <div id="totalPnlBadge" class="net-pnl-pill text-[9px]">
+            <span class="pnl-label">Net P&amp;L:</span>
+            <span class="pnl-value">&#8377; 0.00</span>
+          </div>
+          <button onclick="refreshAll()" class="btn btn-light text-[10px] px-3 py-1.5">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
@@ -589,99 +867,46 @@
             Refresh
           </button>
           <button onclick="clearAllAlerts()"
-            class="btn px-3 py-1.5 text-xs bg-rose-400/10 text-rose-400 border border-rose-400/20 hover:bg-rose-400/20 transition-colors">
+            class="btn px-3 py-1.5 text-[10px] bg-rose-400/10 text-rose-400 border border-rose-400/20 hover:bg-rose-400/20 transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
               </path>
             </svg>
-            Clear All
+            Clear Alerts
           </button>
         </div>
       </div>
 
-      <div class="table-container">
-        <div class="overflow-x-auto">
-          <table>
-            <thead>
-              <tr>
-                <th>Alert Name</th>
-                <th>Time</th>
-                <th>Symbol</th>
-                <th class="text-right">LTP</th>
-                <th class="text-right">% Change</th>
-                <th class="text-center">Status</th>
-              </tr>
-            </thead>
-            <tbody id="alertsBody">
-              <tr>
-                <td colspan="6" class="text-center py-12 text-slate-400 italic">Waiting for incoming signals...</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <!-- Positions Section -->
-    <section class="animate-enter delay-100">
-      <div class="flex items-center justify-between mb-6">
-        <div class="flex items-center gap-4">
-          <div
-            class="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-lg shadow-cyan-500/10">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
-              </path>
-            </svg>
-          </div>
-          <div>
-            <h2 class="text-3xl font-bold text-slate-1000 tracking-tight">Active Positions</h2>
-            <div class="flex items-center gap-4 mt-2">
-              <span id="posCount" class="badge bg-cyan-500/10 text-cyan-300 border-cyan-500/20 px-3 py-2 text-xs">0
-                Active</span>
-              <div id="totalPnlBadge"
-                class="text-xl font-bold font-mono tracking-tight px-4 py-1.5 rounded-lg border border-white/5 bg-slate-800/50 shadow-inner">
-                <span class="text-slate-500 text-sm font-sans mr-1">PnL</span>
-                <span class="text-slate-300">0.00</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="flex items-center gap-3">
-          <button onclick="refreshPositions()" class="btn btn-light px-3 py-2 text-xs">
-            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
-              </path>
-            </svg>
-            Sync
-          </button>
-        </div>
-      </div>
       <div class="table-container">
         <div class="overflow-x-auto">
           <table>
             <thead>
               <tr class="text-[10px] uppercase tracking-[0.15em] text-slate-500 border-b border-white/5">
-                <th class="px-4 py-4 text-left font-black">Symbol</th>
-                <th class="px-2 py-4 text-left font-black">Strategy</th>
-                <th class="px-2 py-4 text-center font-black">Side</th>
-                <th class="px-2 py-4 text-center font-black">Type</th>
-                <th class="px-2 py-4 text-right font-black">Qty</th>
-                <th class="px-2 py-4 text-right font-black">Entry</th>
-                <th class="px-2 py-4 text-right font-black text-emerald-300/70">Target</th>
-                <th class="px-2 py-4 text-right font-black text-rose-300/70">StopLoss</th>
-                <th class="px-2 py-4 text-right font-black text-amber-300/70">TSL</th>
-                <th class="px-2 py-4 text-right font-black text-slate-300/70">LTP</th>
-                <th class="px-2 py-4 text-right font-black">P&L</th>
-                <th class="px-2 py-4 text-center font-black">State</th>
-                <th class="px-4 py-4 text-center font-black">Actions</th>
+                <th class="px-3 py-4 text-left font-bold tracking-wide uppercase text-slate-200" style="font-family:'Orbitron', sans-serif;">Alert Name</th>
+<th class="px-3 py-4 text-left font-bold tracking-wide uppercase text-slate-200" style="font-family:'Orbitron', sans-serif;">Time</th>
+<th class="px-3 py-4 text-left font-bold tracking-wide uppercase text-slate-200" style="font-family:'Orbitron', sans-serif;">Symbol</th>
+<th class="px-3 py-4 text-right font-bold tracking-wide uppercase text-slate-200" style="font-family:'Orbitron', sans-serif;">LTP</th>
+<th class="px-3 py-4 text-center font-bold tracking-wide uppercase text-slate-200" style="font-family:'Orbitron', sans-serif;">Type</th>
+<th class="px-3 py-4 text-center font-bold tracking-wide uppercase text-slate-200" style="font-family:'Orbitron', sans-serif;">Side</th>
+<th class="px-3 py-4 text-right font-bold tracking-wide uppercase text-slate-200" style="font-family:'Orbitron', sans-serif;">Qty</th>
+<th class="px-3 py-4 text-right font-bold tracking-wide uppercase text-slate-200" style="font-family:'Orbitron', sans-serif;">Entry</th>
+<th class="px-3 py-4 text-right font-bold tracking-wide uppercase text-slate-200" style="font-family:'Orbitron', sans-serif;">Target</th>
+<th class="px-3 py-4 text-right font-bold tracking-wide uppercase text-slate-200" style="font-family:'Orbitron', sans-serif;">Sl</th>
+<th class="px-3 py-4 text-right font-bold tracking-wide uppercase text-slate-200" style="font-family:'Orbitron', sans-serif;">TSL</th>
+<th class="px-3 py-4 text-right font-bold tracking-wide uppercase text-slate-200" style="font-family:'Orbitron', sans-serif;">P&L</th>
+<th class="px-3 py-4 text-center font-bold tracking-wide uppercase text-slate-200" style="font-family:'Orbitron', sans-serif;">Status</th>
+<th class="px-3 py-4 text-center font-bold tracking-wide uppercase text-slate-200" style="font-family:'Orbitron', sans-serif;">Action</th>
               </tr>
             </thead>
+            <tbody id="alertsBody">
+              <tr>
+                <td colspan="14" class="text-center py-12 text-slate-400 italic">Waiting for incoming signals...</td>
+              </tr>
+            </tbody>
             <tbody id="posBody">
               <tr>
-                <td colspan="13" class="text-center py-12 text-slate-500 italic">No active positions currently.</td>
+                <td colspan="14" class="text-center py-12 text-slate-500 italic">No active positions currently.</td>
               </tr>
             </tbody>
           </table>
@@ -699,7 +924,7 @@
       <!-- Gradient border wrapper -->
       <div
         class="relative rounded-2xl bg-gradient-to-b from-cyan-500/20 to-blue-600/5 p-[1px] shadow-2xl shadow-cyan-900/10 animate-enter">
-        <div class="rounded-2xl p-8 border-0 bg-[#0f172a]">
+        <div class="cred-card rounded-2xl p-6 border-0 bg-[#0f172a]">
           <button onclick="closeCred()"
             class="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -707,7 +932,7 @@
             </svg>
           </button>
 
-          <div class="flex items-center gap-4 mb-8">
+          <div class="flex items-center gap-3 mb-5">
             <div class="relative group">
               <div
                 class="absolute -inset-1 bg-gradient-to-r from-blue-500 to-cyan-400 rounded-xl blur opacity-40 group-hover:opacity-60 transition duration-200">
@@ -722,8 +947,8 @@
               </div>
             </div>
             <div>
-              <h3 class="text-2xl font-bold text-white tracking-tight font-[Outfit]">Connect Broker</h3>
-              <div class="flex items-center gap-2 text-xs font-semibold text-emerald-400 mt-1">
+              <h3 class="text-xl font-bold text-white tracking-tight font-[Outfit]">Connect Broker</h3>
+              <div class="flex items-center gap-2 text-[10px] font-semibold text-emerald-400 mt-1">
                 <span class="relative flex h-2 w-2">
                   <span
                     class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -734,19 +959,19 @@
             </div>
           </div>
 
-          <p class="text-sm text-slate-400 mb-6 leading-relaxed">
+          <p class="text-sm text-slate-400 mb-4 leading-relaxed">
             Enter your <strong>Zerodha Kite API</strong> credentials. These are stored locally on your machine for
             trading execution.
           </p>
 
-          <div class="space-y-6">
+          <div class="space-y-4">
             <div class="group">
               <label
                 class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1 group-focus-within:text-cyan-400 transition-colors">API
                 Key</label>
               <div class="relative">
                 <input id="api_key" type="password"
-                  class="w-full bg-[#1e293b] border border-white/10 text-white text-sm rounded-xl px-4 py-3.5 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all placeholder:text-slate-500 shadow-inner"
+                  class="w-full bg-[#1e293b] border border-white/10 text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all placeholder:text-slate-500 shadow-inner"
                   placeholder="Enter API Key ••••••••••••">
                 <button type="button" onclick="toggleVisibility('api_key')"
                   class="absolute inset-y-0 right-0 px-4 flex items-center text-slate-600 hover:text-cyan-400 transition-colors">
@@ -765,7 +990,7 @@
                 Secret</label>
               <div class="relative">
                 <input id="api_secret" type="password"
-                  class="w-full bg-[#1e293b] border border-white/10 text-white text-sm rounded-xl px-4 py-3.5 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all placeholder:text-slate-500 shadow-inner"
+                  class="w-full bg-[#1e293b] border border-white/10 text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all placeholder:text-slate-500 shadow-inner"
                   placeholder="Enter API Secret ••••••••••••">
                 <button type="button" onclick="toggleVisibility('api_secret')"
                   class="absolute inset-y-0 right-0 px-4 flex items-center text-slate-600 hover:text-cyan-400 transition-colors">
@@ -781,9 +1006,9 @@
             </div>
           </div>
 
-          <div class="flex flex-col gap-3 mt-10">
+          <div class="flex flex-col gap-3 mt-6">
             <button onclick="saveCred()"
-              class="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2 group">
+              class="w-full py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-green-500 text-black font-bold shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2 group">
               <svg class="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor"
                 viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -793,7 +1018,7 @@
               Save Secure Credentials
             </button>
             <button onclick="connectZerodha()"
-              class="w-full py-3.5 rounded-xl bg-transparent text-slate-400 font-semibold border border-slate-700/50 hover:border-slate-500 hover:text-white transition-all flex items-center justify-center gap-2 hover:bg-white/5">
+              class="w-full py-1.5 rounded-xl bg-transparent text-slate-300 font-semibold border border-slate-700/50 hover:border-slate-500 hover:text-white transition-all flex items-center justify-center gap-2 hover:bg-white/5">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1">
@@ -811,37 +1036,19 @@
   <!-- Config Modal -->
   <div id="cfgModal" class="fixed inset-0 z-[100] hidden overflow-y-auto">
     <div class="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onclick="closeCfg()"></div>
-    <div class="relative min-h-screen flex items-center justify-center p-4">
+    <div class="relative min-h-screen flex items-center justify-center p-3">
       <div
-        class="rounded-2xl p-6 border border-white/10 shadow-2xl w-full max-w-xl relative animate-enter my-8 bg-[#0f172a]">
+        class="cfg-card rounded-2xl p-3 border border-white/10 shadow-2xl w-full max-w-lg relative animate-enter my-3 bg-[#0f172a]">
         <button onclick="closeCfg()" class="absolute top-5 right-5 text-slate-400 hover:text-white">✕</button>
 
-        <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center justify-between mb-2">
           <div>
-            <h3 class="text-lg font-bold text-white">Strategy Configuration</h3>
-            <p class="text-xs text-slate-400">Define parameters for your Chartink alerts.</p>
+            <h3 class="text-base font-bold text-white">Strategy Configuration</h3>
+            <p class="text-[9px] text-slate-400">Define parameters for your Chartink alerts.</p>
           </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="col-span-2">
-            <label class="block text-xs font-semibold text-emerald-400 uppercase mb-1.5">Your Webhook URL</label>
-            <div class="relative group/url">
-              <input id="webhook_url"
-                class="input-field text-xs font-mono text-slate-400 bg-black/40 cursor-pointer hover:text-emerald-300 transition-colors"
-                readonly onclick="this.select(); copyWebhookUrl()">
-              <div
-                class="absolute right-2 top-1.5 p-1.5 pointer-events-none text-slate-500 group-hover/url:text-emerald-400 transition-colors">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z">
-                  </path>
-                </svg>
-              </div>
-            </div>
-            <p class="text-[10px] text-slate-500 mt-1">Paste this into Chartink Alert Webhook</p>
-          </div>
-
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
           <div class="col-span-2 md:col-span-1">
             <label class="block text-xs font-semibold text-cyan-400 uppercase mb-1.5">Alert Name</label>
             <input id="cfg_alert" class="input-field" placeholder="e.g. BULLISH_BREAKOUT">
@@ -870,7 +1077,7 @@
             </select>
           </div>
 
-          <div class="col-span-2 grid grid-cols-3 gap-4">
+          <div class="col-span-2 grid grid-cols-3 gap-2">
             <div>
               <label class="block text-xs font-semibold text-slate-400 uppercase mb-1.5">Sizing Mode</label>
               <select id="cfg_qtymode" class="input-field">
@@ -889,9 +1096,9 @@
           </div>
 
           <!-- Risk Management -->
-          <div class="col-span-2 border-t border-white/5 pt-3 mt-1">
+          <div class="col-span-2 border-t border-white/5 pt-2 mt-1">
             <h4 class="text-xs font-bold text-white mb-2">Risk Management (MIS Only)</h4>
-            <div class="grid grid-cols-3 gap-4">
+            <div class="grid grid-cols-3 gap-2">
               <div>
                 <label class="block text-xs font-semibold text-emerald-400 uppercase mb-1.5">Target %</label>
                 <input id="cfg_tgt" type="number" step="0.1" class="input-field">
@@ -908,9 +1115,9 @@
           </div>
 
           <!-- Entry Time Window -->
-          <div class="col-span-2 border-t border-white/5 pt-3 mt-1">
+          <div class="col-span-2 border-t border-white/5 pt-2 mt-1">
             <h4 class="text-xs font-bold text-white mb-2">Entry Time Window</h4>
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-2 gap-2">
               <div>
                 <label class="block text-xs font-semibold text-cyan-400 uppercase mb-1.5">Entry Start Time</label>
                 <input id="cfg_entry_start" type="time" class="input-field" value="09:15">
@@ -924,8 +1131,8 @@
             </div>
           </div>
 
-          <div class="col-span-2 border-t border-white/5 pt-3">
-            <div class="flex items-center gap-4">
+          <div class="col-span-2 border-t border-white/5 pt-2">
+            <div class="flex items-center gap-2">
               <div class="flex-1">
                 <label class="block text-xs font-semibold text-slate-400 uppercase mb-1.5">Max Trades / Day</label>
                 <input id="cfg_limit" type="number" class="input-field">
@@ -1129,7 +1336,7 @@
       try {
         const r = await (await fetch(`/api/zerodha-status?user_id=${USER_ID}`)).json();
         if (r.connected) {
-          el.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)] inline-block mr-1.5"></span> KITE: CONNECTED`;
+        el.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)] inline-block mr-1.5"></span> KITE CONNECTED`;
           el.className = "px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.2)] transition-all";
         } else {
           throw new Error('Disconnected');
@@ -1146,7 +1353,7 @@
         }
 
       } catch {
-        el.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block mr-1.5 animate-pulse"></span> KITE: DISCONNECTED`;
+        el.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block mr-1.5 animate-pulse"></span> KITE DISCONNECTED`;
         el.className = "px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20 shadow-[0_0_10px_rgba(244,63,94,0.2)] transition-all";
       }
     }
@@ -1366,6 +1573,9 @@
     const ALERTS = [];
     let WS = null;
     let POS_MAP = {}; // Global map: symbol -> position object
+    let POS_SNAPSHOT = {}; // Keep last known position data to avoid UI clearing
+    let _alertsRenderTimer = null;
+    let _lastLtpUiUpdate = 0;
 
     // Helper: sanitize symbol for use as HTML ID
     function safeId(symbol) {
@@ -1383,15 +1593,16 @@
         ALERTS.forEach(a => {
           count += (a.result || []).length;
         });
-        countEl.textContent = `${count} Signal${count !== 1 ? 's' : ''}`;
+        countEl.textContent = `${count} Alert${count !== 1 ? 's' : ''}`;
       }
 
       if (ALERTS.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-12 text-slate-500 italic">Waiting for incoming signals...</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="14" class="text-center py-12 text-slate-500 italic">Waiting for incoming signals...</td></tr>`;
         return;
       }
 
-      tbody.innerHTML = ALERTS.slice(0, 100).map(a => {
+      tbody.innerHTML = `
+        ${ALERTS.slice(0, 100).map(a => {
         const timeStr = new Date(a.time).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
         const timeClass = "text-slate-500";
         const symbolClass = "font-bold text-slate-200";
@@ -1420,7 +1631,15 @@
             } else if (livePos.status === 'EXITING') {
               statusLabel = 'EXITING';
               statusReason = livePos.exit_reason;
+            } else if (livePos.status === 'EXITED' || livePos.status === 'CLOSED') {
+              statusLabel = 'EXITED';
+              statusReason = livePos.exit_reason || livePos.exit_note || 'Exit completed';
+            } else if (livePos.status === 'OPEN') {
+              statusLabel = 'LIVE';
+            } else if (livePos.status === 'ERROR') {
+              statusLabel = 'ERROR';
             }
+            if (livePos.side) sideLabel = livePos.side;
           }
 
           // Helper for status class (using dark variants)
@@ -1441,37 +1660,93 @@
           };
 
           const isEntered = statusLabel === 'ENTERED';
-          const rowBg = isEntered ? 'bg-teal-500/[0.05]' : 'hover:bg-white/[0.04]';
+          const displayStatus = isEntered && sideLabel ? `ENTERED ${sideLabel}` : statusLabel;
+          const rowBg =
+            statusLabel === 'EXITED'
+              ? 'bg-emerald-500/[0.06]'
+              : isEntered
+                ? 'bg-teal-500/[0.05]'
+                : 'hover:bg-white/[0.04]';
+
+          // Position fields (filled when livePos exists)
+          const snapshot = POS_SNAPSHOT[sym] || null;
+          const p = livePos || snapshot || null;
+          if (livePos) {
+            POS_SNAPSHOT[sym] = { ...livePos };
+          }
+          const qty = p ? p.qty : null;
+          const entry = p ? Number(p.entry_price || 0).toFixed(2) : null;
+          const tgt = p ? Number(p.target_price || 0).toFixed(2) : null;
+          const sl = p ? Number(p.sl_price || 0).toFixed(2) : null;
+          const pnlNum = p ? Number(p.pnl || 0) : null;
+          const pnl = p ? pnlNum.toFixed(2) : null;
+          const prod = p ? (p.product || 'MIS') : null;
+          const pnlClass = p ? (pnlNum > 0 ? 'text-emerald-400 font-bold' : pnlNum < 0 ? 'text-rose-400 font-bold' : 'text-slate-400') : 'text-slate-600';
+          const sector = p ? (p.sector || '') : '';
+
+          // TSL calc if we have position
+          let tslVal = null;
+          if (p) {
+            let tslPrice = 0.0;
+            const tslPct = Number(p.tsl_pct || 0);
+            if (tslPct > 0) {
+              if (p.side === 'BUY' && Number(p.highest || 0) > 0) tslPrice = Number(p.highest) * (1.0 - tslPct / 100.0);
+              else if (p.side === 'SELL' && Number(p.lowest || 0) > 0) tslPrice = Number(p.lowest) * (1.0 + tslPct / 100.0);
+            }
+            if (tslPrice > 0) tslVal = tslPrice.toFixed(2);
+          }
 
           return `
             <tr class="${rowBg} transition-all duration-300 border-b border-white/5 last:border-0 group">
-                <td class="px-4 py-3 whitespace-nowrap">
-                    <span class="px-3 py-1.5 rounded-lg text-sm font-bold text-blue-200 tracking-wide">
-                        ${a.alert_name}
-                    </span>
-                </td>
-                <td class="px-4 py-3 whitespace-nowrap text-xs ${timeClass} font-mono">${timeStr}</td>
-                 <td class="px-4 py-3 whitespace-nowrap text-sm ${symbolClass}">${symLabel}</td>
-                 <td class="px-4 py-3 whitespace-nowrap text-right font-mono text-sm text-slate-300" data-symbol="${sym}" data-field="ltp">
-                     ${r.ltp ? r.ltp.toFixed(2) : '--'}
-                 </td>
-                 <td class="px-4 py-3 whitespace-nowrap text-right font-mono text-sm font-bold ${pClass}" data-symbol="${sym}" data-field="pct">
-                     ${r.pct ? r.pct.toFixed(2) + '%' : '--'}
-                 </td>
-                <td class="px-4 py-3 whitespace-nowrap text-center">
-                    <div class="flex flex-col items-center gap-1">
-                        <span class="px-2.5 py-1 rounded-full text-[10px] font-black tracking-widest ${getStatusClass(statusLabel)}">
-                            ${statusLabel}
-                        </span>
-                        ${statusLabel === 'ENTERED' && sideLabel
-              ? `<span class="px-3 py-0.5 rounded text-[9px] font-black uppercase tracking-[0.2em] ${sideLabel === 'BUY' ? 'bg-emerald-500/80 text-white shadow-[0_0_8px_rgba(16,185,129,0.3)]' : 'bg-rose-500/80 text-white shadow-[0_0_8px_rgba(244,63,94,0.3)]'}">${sideLabel}</span>`
-              : (statusReason ? `<div class="text-[9px] text-slate-500 mt-0.5 max-w-[120px] truncate mx-auto" title="${statusReason}">${statusReason}</div>` : '')}
-                    </div>
-                </td>
+              <td class="px-3 py-3">
+                <span class="text-xs font-bold text-blue-300 tracking-wide">${a.alert_name}</span>
+              </td>
+              <td class="px-3 py-3 whitespace-nowrap text-xs ${timeClass} font-mono">${timeStr}</td>
+              <td class="px-3 py-3 whitespace-nowrap text-sm ${symbolClass}">
+                <div class="flex flex-col">
+                  <span>${symLabel}</span>
+                  ${sector ? `<span class="inline-flex items-center px-2 py-0.5 mt-1 rounded text-[9px] font-black uppercase tracking-widest bg-cyan-500/15 text-cyan-300 border border-cyan-500/25 w-fit">${sector}</span>` : ''}
+                </div>
+              </td>
+              <td class="px-3 py-3 whitespace-nowrap text-right font-mono font-bold text-5xl text-cyan-400" data-symbol="${sym}" data-field="ltp">                
+                ${p && p.ltp ? Number(p.ltp).toFixed(2) : (r.ltp ? r.ltp.toFixed(2) : '--')}
+              </td>
+              <td class="px-3 py-3 text-center ${p ? 'text-slate-200' : 'text-slate-300'}">${prod || '--'}</td>
+              <td class="px-3 py-3 text-center">
+                ${sideLabel ? `<span class="px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-[0.2em] ${sideLabel === 'BUY' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}">${sideLabel}</span>` : '<span class="text-slate-600">--</span>'}
+              </td>
+              <td class="px-3 py-3 text-right ${p ? 'text-cyan-400 font-bold' : 'text-slate-600'}">${qty ?? '--'}</td>
+              <td class="px-3 py-3 text-right ${p ? 'text-slate-200' : 'text-slate-300'}">${entry ?? '--'}</td>
+              <td class="px-3 py-3 text-right ${p ? 'text-emerald-400 font-bold' : 'text-slate-600'}">${tgt ?? '--'}</td>
+              <td class="px-3 py-3 text-right ${p ? 'text-rose-400 font-bold' : 'text-slate-600'}">${sl ?? '--'}</td>
+              <td class="px-3 py-3 text-right ${p ? 'text-amber-400 font-bold' : 'text-slate-600'} atsl-${safeId(sym)}">${tslVal ?? '--'}</td>
+              <td class="px-3 py-3 text-right ${p ? pnlClass : 'text-slate-600'}" data-symbol="${sym}" data-field="pnl">${pnl ?? '--'}</td>
+              <td class="px-3 py-3 text-center">
+                <div class="flex flex-col items-center gap-1">
+                  <span class="px-2.5 py-1 rounded-full ${statusLabel === 'LIVE' ? 'text-[10px]' : 'text-[8px]'} font-black tracking-widest ${getStatusClass(statusLabel)}">
+                    ${statusLabel === 'LIVE' ? `<span class="inline-flex items-center gap-1.5 text-emerald-300 drop-shadow-[0_0_6px_rgba(16,185,129,0.7)]"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse"></span> LIVE</span>` : displayStatus}
+                  </span>
+                  ${statusLabel === 'ENTERED' && sideLabel
+              ? ``
+              : (statusReason ? `<div class="text-[9px] text-slate-500 mt-0.5 max-w-[140px] truncate mx-auto" title="${statusReason}">${statusReason}</div>` : '')}
+                </div>
+              </td>
+              <td class="px-3 py-3 text-center">
+                ${p ? `<button onclick="squareoff('${p.symbol}')" class="px-3 py-1 text-[10px] font-black uppercase tracking-widest bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-lg hover:bg-rose-500/20 hover:text-white hover:border-rose-500/40 transition-all duration-300">SQ OFF</button>` : '<span class="text-slate-600">--</span>'}
+              </td>
             </tr>
-            `;
+          `;
         }).join('');
-      }).join('');
+      }).join('')}
+      `;
+    }
+
+    function scheduleRenderAlerts(delay = 250) {
+      if (_alertsRenderTimer) return;
+      _alertsRenderTimer = setTimeout(() => {
+        _alertsRenderTimer = null;
+        renderAlerts();
+      }, delay);
     }
 
     async function loadAlerts() {
@@ -1523,8 +1798,17 @@
       const activePos = pos.filter(p => ['OPEN', 'EXITING', 'EXIT_CONDITIONS_MET', 'ERROR'].includes(p.status));
       activePos.sort((a, b) => a.symbol.localeCompare(b.symbol));
       POS_MAP = {};
-      pos.forEach(p => { POS_MAP[p.symbol] = p; });
+      pos.forEach(p => {
+        POS_MAP[p.symbol] = p;
+        if (p && p.symbol) POS_SNAPSHOT[p.symbol] = { ...p };
+      });
       renderPositions(activePos);
+      scheduleRenderAlerts();
+    }
+
+    async function refreshAll() {
+      await refreshPositions();
+      await loadAlerts();
       renderAlerts();
     }
 
@@ -1538,103 +1822,26 @@
         rows.forEach(p => totalPnl += Number(p.pnl || 0));
       }
 
-      if (countEl) countEl.textContent = `${rows ? rows.length : 0} Active`;
+      if (countEl) countEl.textContent = `${rows ? rows.length : 0} Active Pos`;
 
       if (pnlEl) {
         const val = totalPnl.toFixed(2);
         const colorClass = totalPnl > 0 ? "text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.4)]" : totalPnl < 0 ? "text-rose-400 drop-shadow-[0_0_8px_rgba(251,113,133,0.4)]" : "text-white";
-        pnlEl.className = `flex items-center gap-4 px-5 py-2.5 bg-[#0B1221] border border-white/5 rounded-2xl shadow-inner`;
-        pnlEl.innerHTML = `<span class="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">NET PNL</span><span class="text-2xl font-mono font-bold tracking-tighter leading-none ${colorClass}">${val}</span>`;
+        const sign = totalPnl > 0 ? '+' : '';
+        pnlEl.className = `net-pnl-pill`;
+        pnlEl.innerHTML = `<span class="pnl-label">Net P&amp;L:</span><span class="pnl-value">&#8377; ${sign}${val}</span>`;
       }
 
-      if (!rows || rows.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="13" class="text-center py-12 text-slate-400 italic">No active positions currently.</td></tr>`;
-        return;
+      if (rows && rows.length) {
+        rows.forEach(p => {
+          if (p && p.symbol) POS_SNAPSHOT[p.symbol] = { ...p };
+        });
       }
 
-      tbody.innerHTML = rows.map(p => {
-        const pnl = Number(p.pnl || 0);
-        const pnlClass = pnl > 0 ? 'text-emerald-400 font-bold' : pnl < 0 ? 'text-rose-400 font-bold' : 'text-slate-400';
-        const sideClass = p.side === 'BUY' ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : 'text-rose-400 bg-rose-500/10 border border-rose-500/20';
-
-        // TSL Calculation
-        let tslPrice = 0.0;
-        const tslPct = Number(p.tsl_pct || 0);
-        if (tslPct > 0) {
-          if (p.side === 'BUY' && Number(p.highest || 0) > 0) tslPrice = Number(p.highest) * (1.0 - tslPct / 100.0);
-          else if (p.side === 'SELL' && Number(p.lowest || 0) > 0) tslPrice = Number(p.lowest) * (1.0 + tslPct / 100.0);
-        }
-
-        return `
-          <tr class="group text-[13px] hover:bg-white/[0.02] border-b border-white/5 transition-all duration-300">
-            <!-- 1. Symbol -->
-            <td class="px-4 py-4">
-              <div class="flex flex-col">
-                ${p.sector ? `<span class="inline-flex items-center px-2 py-0.5 mb-1.5 rounded text-[9px] font-black uppercase tracking-widest bg-cyan-500/15 text-cyan-300 border border-cyan-500/25 w-fit shadow-sm shadow-cyan-500/5">${p.sector}</span>` : ''}
-                <span class="font-bold text-white text-sm tracking-tight group-hover:text-cyan-400 transition-colors">${p.symbol}</span>
-              </div>
-            </td>
-            
-            <!-- 2. Strategy -->
-            <td class="px-2 py-4">
-              <span class="text-[10px] font-bold text-slate-400 bg-slate-800/50 px-2.5 py-1 rounded-lg border border-white/5 uppercase tracking-wide">${p.alert_name || 'MANUAL'}</span>
-            </td>
-
-            <!-- 3. Side -->
-            <td class="px-2 py-4 text-center">
-              <span class="px-2.5 py-1 rounded-lg text-[10px] font-black tracking-wider ${sideClass}">${p.side}</span>
-            </td>
-
-            <!-- 4. Type -->
-            <td class="px-2 py-4 text-center">
-              <span class="text-[10px] font-black text-slate-300 tracking-widest">${p.product || 'MIS'}</span>
-            </td>
-
-            <!-- 5. Qty -->
-            <td class="px-2 py-4 text-right font-mono text-cyan-400 font-bold text-base tracking-tighter">${p.qty}</td>
-
-            <!-- 6. Entry -->
-            <td class="px-2 py-4 text-right font-mono text-slate-400 font-medium">${Number(p.entry_price || 0).toFixed(2)}</td>
-
-            <!-- 7. Target -->
-            <td class="px-2 py-4 text-right font-mono text-emerald-500 font-bold">${Number(p.target_price || 0).toFixed(2)}</td>
-
-            <!-- 8. StopLoss -->
-            <td class="px-2 py-4 text-right font-mono text-rose-500 font-bold">${Number(p.sl_price || 0).toFixed(2)}</td>
-
-            <!-- 9. TSL -->
-            <td class="px-2 py-4 text-right font-mono text-amber-500 font-bold">${tslPrice > 0 ? tslPrice.toFixed(2) : '--'}</td>
-
-            <!-- 10. LTP -->
-            <td class="px-2 py-4 text-right font-mono font-black text-white text-sm" id="pltp-${p.symbol}">${Number(p.ltp || 0).toFixed(2)}</td>
-
-            <!-- 11. P&L -->
-            <td class="px-2 py-4 text-right font-mono font-black text-base ${pnlClass}" id="ppnl-${p.symbol}">${pnl.toFixed(2)}</td>
-
-            <!-- 12. State -->
-            <td class="px-4 py-4 text-center">
-              ${p.status === 'EXIT_CONDITIONS_MET'
-            ? `<span class="px-3 py-1 rounded-lg bg-orange-500/20 text-orange-400 text-[10px] font-black animate-pulse border border-orange-400/30">EXIT READY</span>`
-            : p.status === 'EXITING'
-              ? `<span class="px-3 py-1 rounded-lg badge-highlight-exiting text-[10px] font-black border tracking-widest uppercase">EXITING</span>`
-              : p.status === 'ERROR'
-                ? `<div class="flex flex-col items-center gap-1">
-                     <span class="px-3 py-1 rounded-lg badge-highlight-error text-[10px] font-black border tracking-widest uppercase">ERROR</span>
-                     <span class="text-[8px] text-rose-300 max-w-[80px] truncate" title="${p.exit_reason || 'Order Failed'}">${p.exit_reason || 'Order Failed'}</span>
-                   </div>`
-                : `<span class="px-3 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 text-[10px] font-black border border-emerald-400/20 tracking-widest shadow-sm shadow-emerald-500/10">LIVE</span>`
-          }
-            </td>
-
-            <!-- 13. Actions -->
-            <td class="px-4 py-4 text-center">
-              <button onclick="squareoff('${p.symbol}')" class="px-4 py-2 text-[10px] font-black uppercase tracking-widest bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-xl hover:bg-rose-500/20 hover:text-white hover:border-rose-500/40 transition-all duration-300">
-                Square Off
-              </button>
-            </td>
-          </tr>
-        `;
-      }).join('');
+      if (tbody) {
+        // Positions are rendered into alert rows; keep this body empty to avoid duplicates.
+        tbody.innerHTML = "";
+      }
     }
 
     async function squareoff(sym) {
@@ -1684,13 +1891,21 @@
       WS = new WebSocket(`${proto}://${location.host}/ws/feed?user_id=${USER_ID}`);
 
       WS.onopen = () => {
-        el.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.6)] inline-block mr-1.5"></span> WS: LIVE`;
-        el.className = "px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20 shadow-[0_0_10px_rgba(59,130,246,0.3)] transition-all";
+        el.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 9a7.5 7.5 0 0115 0M7.5 12a4.5 4.5 0 019 0M10.5 15a1.5 1.5 0 013 0"></path>
+          </svg>
+          WS Live`;
+        el.className = "ws-pill ws-live";
       };
 
       WS.onclose = () => {
-        el.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block mr-1.5 animate-pulse"></span> FEED: DISCONNECTED`;
-        el.className = "px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20 shadow-[0_0_10px_rgba(244,63,94,0.2)] transition-all";
+        el.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 9a7.5 7.5 0 0115 0M7.5 12a4.5 4.5 0 019 0M9 18l6-6M15 18l-6-6"></path>
+          </svg>
+          WS Offline`;
+        el.className = "ws-pill ws-offline";
         setTimeout(startWS, 2000);
       };
 
@@ -1712,7 +1927,7 @@
               el.innerText = ltp;
               const ltpColor = d.ltp > close ? 'text-emerald-400' : d.ltp < close ? 'text-rose-400' : 'text-slate-300';
               // Preserve base classes + update color
-              el.className = `text-right font-mono ${ltpColor}`;
+              el.className = `text-right font-mono font-bold text-xl ${ltpColor}`;
             });
 
             document.querySelectorAll(`[data-symbol="${s}"][data-field="pct"]`).forEach(el => {
@@ -1720,6 +1935,17 @@
               const pctColor = parseFloat(pctChange) > 0 ? 'text-emerald-400' : parseFloat(pctChange) < 0 ? 'text-rose-400' : 'text-slate-400';
               el.className = `text-right font-mono ${pctColor}`;
             });
+
+            // Update P&L if available in POS_MAP (without full re-render)
+            const pSnap = POS_MAP[s];
+            if (pSnap && typeof pSnap.pnl !== "undefined") {
+              const pnlVal = Number(pSnap.pnl || 0).toFixed(2);
+              const pnlColor = pSnap.pnl > 0 ? 'text-emerald-400 font-bold' : pSnap.pnl < 0 ? 'text-rose-400 font-bold' : 'text-slate-400';
+              document.querySelectorAll(`[data-symbol="${s}"][data-field="pnl"]`).forEach(el => {
+                el.innerText = pnlVal;
+                el.className = `text-right ${pnlColor}`;
+              });
+            }
 
             // Update TSL in Alert Table dynamically from POS_MAP
             const p = POS_MAP[s]; // Lookup from map by raw symbol
@@ -1767,9 +1993,13 @@
               activePos.sort((a, b) => a.symbol.localeCompare(b.symbol));
 
               renderPositions(activePos);
-              renderAlerts();
+              scheduleRenderAlerts();
+              if (d.position.status !== 'OPEN') {
+                loadAlerts();
+              }
             } else {
               refreshPositions();
+              loadAlerts();
             }
           }
 
