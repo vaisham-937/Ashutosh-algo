@@ -84,6 +84,35 @@ class EndpointFilter(logging.Filter):
 logging.getLogger("uvicorn.access").setLevel(logging.INFO)  # Keep INFO for other requests
 logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
 
+# Optional stdout filter to suppress verbose middleware prints
+_SUPPRESS_MW = (os.getenv("SUPPRESS_MIDDLEWARE_LOGS", "1") or "").strip().lower() in {"1", "true", "yes", "on"}
+if _SUPPRESS_MW:
+    class _FilteredStdout:
+        def __init__(self, stream, drop_prefixes):
+            self._stream = stream
+            self._drop_prefixes = tuple(drop_prefixes)
+            self._buf = ""
+
+        def write(self, s):
+            self._buf += s
+            while "\n" in self._buf:
+                line, self._buf = self._buf.split("\n", 1)
+                if not line.startswith(self._drop_prefixes):
+                    self._stream.write(line + "\n")
+            return len(s)
+
+        def flush(self):
+            if self._buf:
+                if not self._buf.startswith(self._drop_prefixes):
+                    self._stream.write(self._buf)
+                self._buf = ""
+            self._stream.flush()
+
+        def __getattr__(self, name):
+            return getattr(self._stream, name)
+
+    sys.stdout = _FilteredStdout(sys.stdout, ["[MIDDLEWARE]"])
+
 # -----------------------------
 # Config
 # -----------------------------
