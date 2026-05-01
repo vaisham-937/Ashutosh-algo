@@ -148,6 +148,10 @@ def k_auto_sq_off_ran(user_id: int, ymd: str) -> str:
     return f"status:auto_sq_off_ran:{int(user_id)}:{ymd}"
 
 
+def k_pnl_exit_config(user_id: int) -> str:
+    return f"config:pnl_exit:{int(user_id)}"
+
+
 # =========================
 # Lua scripts
 # =========================
@@ -295,6 +299,41 @@ class RedisStore:
             await self.redis.setex(k_kill(user_id), int(ttl), "1")
         else:
             await self.redis.delete(k_kill(user_id))
+
+    # =========================
+    # P&L exit config (MTM-based)
+    # =========================
+    async def get_pnl_exit_config(self, user_id: int) -> Dict[str, Any]:
+        """
+        User-level risk guard:
+        - enabled: bool
+        - max_profit: float (₹)
+        - max_loss: float (₹, positive number)
+        """
+        try:
+            raw = await self.redis.get(k_pnl_exit_config(user_id))
+            if not raw:
+                return {"enabled": False, "max_profit": 0.0, "max_loss": 0.0}
+            d = json.loads(raw)
+            return {
+                "enabled": bool(d.get("enabled", False)),
+                "max_profit": float(d.get("max_profit", 0.0) or 0.0),
+                "max_loss": float(d.get("max_loss", 0.0) or 0.0),
+            }
+        except Exception:
+            return {"enabled": False, "max_profit": 0.0, "max_loss": 0.0}
+
+    async def set_pnl_exit_config(self, user_id: int, cfg: Dict[str, Any]) -> Dict[str, Any]:
+        enabled = bool(cfg.get("enabled", False))
+        max_profit = float(cfg.get("max_profit", 0.0) or 0.0)
+        max_loss = float(cfg.get("max_loss", 0.0) or 0.0)
+        if max_profit < 0:
+            max_profit = abs(max_profit)
+        if max_loss < 0:
+            max_loss = abs(max_loss)
+        payload = {"enabled": enabled, "max_profit": max_profit, "max_loss": max_loss}
+        await self.redis.set(k_pnl_exit_config(user_id), json.dumps(payload))
+        return payload
 
     # =========================
     # Credentials (SET JSON) - Encrypted

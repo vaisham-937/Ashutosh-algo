@@ -1,4 +1,4 @@
-# Borghate FastAPI Trading App — Detailed Architecture & Data Flow
+# Borghate FastAPI Trading App ï¿½ Detailed Architecture & Data Flow
 
 This README is written in an interview-prep style: what the system does, how data flows, where it is stored, and how it is served to the UI.
 
@@ -54,18 +54,18 @@ A trading automation and monitoring system that:
 
 ## 3) End-to-End Data Flow (Step-By-Step)
 
-### Step 1 — Chartink ? Webhook
+### Step 1 ï¿½ Chartink ? Webhook
 Chartink sends:
 ```
 POST /webhook/chartink?user_id=1
 ```
 Payload includes alert name + symbols.
 
-### Step 2 — Webhook Saved
+### Step 2 ï¿½ Webhook Saved
 Server immediately saves a **RECEIVED** entry in Redis:
 - `alerts:{user_id}` list
 
-### Step 3 — TradeEngine Processing
+### Step 3 ï¿½ TradeEngine Processing
 `TradeEngine.on_chartink_alert()`:
 - Loads config for that alert
 - Checks entry window (time)
@@ -75,14 +75,14 @@ Server immediately saves a **RECEIVED** entry in Redis:
 - Places order via KiteConnect
 - Creates a Position record
 
-### Step 4 — Position Saved
+### Step 4 ï¿½ Position Saved
 Position saved in Redis:
 - `positions:{user_id}` hash
 
-### Step 5 — Result Broadcast
+### Step 5 ï¿½ Result Broadcast
 Final alert result broadcast to UI (WebSocket) so table updates instantly.
 
-### Step 6 — Live Tick Updates
+### Step 6 ï¿½ Live Tick Updates
 Kite Ticker sends ticks. Server forwards ticks to UI. UI updates:
 - LTP column
 - P&L column
@@ -199,4 +199,4 @@ sudo systemctl restart trading.service
 
 ---
 
-If you want this README in Hindi or want architecture diagrams, tell me — I’ll add.
+If you want this README in Hindi or want architecture diagrams, tell me ï¿½ Iï¿½ll add.

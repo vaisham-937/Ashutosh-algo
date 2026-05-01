@@ -978,6 +978,23 @@ async def delete_alert_config_api(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # -----------------------------
+# MTM P&L Exit Config (Daily)
+# -----------------------------
+@app.get("/api/pnl-exit-config")
+async def get_pnl_exit_config_api(user_id: int = 1) -> Dict[str, Any]:
+    user_id = int(user_id)
+    cfg = await store.get_pnl_exit_config(user_id)
+    return {"config": cfg}
+
+
+@app.post("/api/pnl-exit-config")
+async def set_pnl_exit_config_api(payload: Dict[str, Any]) -> Dict[str, Any]:
+    user_id = int(payload.get("user_id", 1))
+    cfg = await store.set_pnl_exit_config(user_id, payload or {})
+    return {"status": "saved", "config": cfg}
+
+
+# -----------------------------
 # Position Management
 # -----------------------------
 @app.post("/api/position/exit-all")

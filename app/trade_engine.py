@@ -6,6 +6,7 @@ import time
 import uuid
 import logging
 import json
+import math
 from datetime import datetime
 from dataclasses import dataclass, asdict
 from typing import Any, Dict, Optional, Literal, List, Tuple, Set
@@ -118,6 +119,38 @@ def _pct_dist(cur: float, ref: float) -> float:
     return ((cur - ref) / ref) * 100.0
 
 
+def _stepwise_anchor_long(entry: float, highest: float, step_pct: float) -> float:
+    """
+    Quantize the trailing anchor in steps of `step_pct` moves from entry.
+    Example (BUY): step_pct=0.65 means anchor updates only at +0.65%, +1.30%, ...
+    """
+    if entry <= 0 or highest <= 0 or step_pct <= 0:
+        return highest
+    step = float(step_pct) / 100.0
+    if step <= 0:
+        return highest
+    idx = int(math.floor(((float(highest) / float(entry)) - 1.0) / step))
+    if idx < 0:
+        idx = 0
+    return float(entry) * (1.0 + (idx * step))
+
+
+def _stepwise_anchor_short(entry: float, lowest: float, step_pct: float) -> float:
+    """
+    Quantize the trailing anchor in steps of `step_pct` moves from entry.
+    Example (SELL): step_pct=0.65 means anchor updates only at -0.65%, -1.30%, ...
+    """
+    if entry <= 0 or lowest <= 0 or step_pct <= 0:
+        return lowest
+    step = float(step_pct) / 100.0
+    if step <= 0:
+        return lowest
+    idx = int(math.floor((1.0 - (float(lowest) / float(entry))) / step))
+    if idx < 0:
+        idx = 0
+    return float(entry) * (1.0 - (idx * step))
+
+
 def _is_within_entry_window(start_time: str, end_time: str) -> bool:
     """
     Check if current IST time is within the entry time window.
@@ -178,6 +211,7 @@ class AlertConfig:
     target_pct: float = 1.0
     stop_loss_pct: float = 0.7
     trailing_sl_pct: float = 0.5
+    tsl_stepwise: bool = False
 
     trade_limit_per_day: int = 5
 
@@ -218,6 +252,7 @@ class AlertConfig:
             target_pct=float(d.get("target_pct", 1.0) or 0.0),
             stop_loss_pct=float(d.get("stop_loss_pct", 0.7) or 0.0),
             trailing_sl_pct=float(d.get("trailing_sl_pct", 0.5) or 0.0),
+            tsl_stepwise=bool(d.get("tsl_stepwise", False)),
             trade_limit_per_day=int(d.get("trade_limit_per_day", 3) or 0),
             sector_filter_on=bool(d.get("sector_filter_on", False)),
             top_n_sector=int(d.get("top_n_sector", 2) or 2),
@@ -244,6 +279,7 @@ class Position:
     target_price: float = 0.0
     sl_price: float = 0.0
     tsl_pct: float = 0.0
+    tsl_stepwise: bool = False
     highest: float = 0.0
     lowest: float = 0.0
 
@@ -257,6 +293,7 @@ class Position:
     cfg_target_pct: float = 0.0
     cfg_sl_pct: float = 0.0
     cfg_tsl_pct: float = 0.0
+    cfg_tsl_stepwise: bool = False
 
 
     ltp: float = 0.0
@@ -357,6 +394,9 @@ class TradeEngine:
         # Kill-switch / panic coordination (avoid concurrent triggers)
         self._kill_trigger_lock = asyncio.Lock()
 
+        # MTM-based daily P&L guard
+        self._pnl_exit_task: Optional["asyncio.Task[None]"] = None
+
     # ---------------- broker setup ----------------
     async def configure_kite(self) -> None:
         creds = await self.store.load_credentials(self.user_id)
@@ -375,6 +415,71 @@ class TradeEngine:
         self.access_token = token
 
         await self.order_worker.start()
+        self._ensure_pnl_exit_monitor_started()
+
+    def _ensure_pnl_exit_monitor_started(self) -> None:
+        if self._pnl_exit_task and not self._pnl_exit_task.done():
+            return
+        try:
+            self._pnl_exit_task = asyncio.create_task(self._pnl_exit_monitor(), name=f"pnl_exit_{self.user_id}")
+        except Exception:
+            self._pnl_exit_task = None
+
+    async def _pnl_exit_monitor(self) -> None:
+        """
+        Poll Kite MTM/P&L (positions) every ~2s.
+        If MTM >= max_profit OR MTM <= -max_loss => squareoff all + enable kill switch for the day.
+        """
+        while True:
+            try:
+                await asyncio.sleep(2.0)
+
+                # If already killed for the day, no need to check further.
+                if await self.store.is_kill(self.user_id):
+                    continue
+
+                cfg = await self.store.get_pnl_exit_config(self.user_id)
+                if not bool(cfg.get("enabled", False)):
+                    continue
+
+                max_profit = float(cfg.get("max_profit", 0.0) or 0.0)
+                max_loss = float(cfg.get("max_loss", 0.0) or 0.0)
+                if max_profit <= 0 and max_loss <= 0:
+                    continue
+
+                ok = await self._ensure_kite_ready()
+                if not ok:
+                    continue
+
+                data = await self._kite_positions()
+                rows = list((data or {}).get("net") or [])
+                mtm = 0.0
+                for r in rows:
+                    try:
+                        mtm += float(r.get("pnl") or r.get("m2m") or 0.0)
+                    except Exception:
+                        continue
+
+                trigger: Optional[str] = None
+                if max_profit > 0 and mtm >= max_profit:
+                    trigger = "MAX_PROFIT"
+                elif max_loss > 0 and mtm <= (-1.0 * abs(max_loss)):
+                    trigger = "MAX_LOSS"
+
+                if trigger:
+                    log.warning(
+                        "PNL_EXIT_TRIGGER | user=%s trigger=%s mtm=%.2f max_profit=%.2f max_loss=%.2f",
+                        self.user_id,
+                        trigger,
+                        mtm,
+                        max_profit,
+                        max_loss,
+                    )
+                    await self.trigger_kill_switch(reason=f"PNL_EXIT:{trigger}:MTM={mtm:.2f}", squareoff_first=True)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                log.debug("PNL_EXIT_MONITOR_FAIL | user=%s err=%s", self.user_id, e)
 
     async def rehydrate_open_positions(self) -> List[str]:
         restored: List[str] = []
@@ -437,6 +542,7 @@ class TradeEngine:
             quantity=int(qty),
             product=str(product),
             order_type="MARKET",
+            market_protection=-1
         )
 
     async def _fetch_positions_avg(self, symbol: str) -> float:
@@ -482,6 +588,10 @@ class TradeEngine:
         if not cfg_raw:
             return [{"symbol": s, "status": "ERROR", "reason": "CFG_MISSING"} for s in symbols]
 
+        # Daily kill switch (e.g., triggered by max MTM profit/loss)
+        if await self.store.is_kill(self.user_id):
+            return [{"symbol": s, "status": "SKIPPED", "reason": "KILL_SWITCH"} for s in symbols]
+
         cfg = AlertConfig.from_dict(cfg_raw)
         if not cfg.enabled:
             return [{"symbol": s, "status": "SKIPPED", "reason": "DISABLED"} for s in symbols]
@@ -496,129 +606,153 @@ class TradeEngine:
                 results.append({"symbol": raw, "status": "ERROR", "reason": "BAD_SYMBOL"})
                 continue
 
-            # sector filter
-            if cfg.sector_filter_on:
-                sector = self.sym_sector.get(sym, "")
-                ranked = self.get_sector_rank()
-                top_secs = [sec for sec, _ in ranked[: max(1, int(cfg.top_n_sector or 1))]]
-                if sector and sector not in top_secs:
-                    results.append({"symbol": sym, "status": "SKIPPED", "reason": "SECTOR_FILTER"})
+            # Per-symbol entry lock (also enforces kill-switch via Lua, if available)
+            lock_acquired = False
+            try:
+                lk = await self.store.acquire_lock(self.user_id, sym, "entry", ttl_ms=5000)
+                if lk == -2:
+                    results.append({"symbol": sym, "status": "SKIPPED", "reason": "KILL_SWITCH"})
+                    continue
+                if lk == 0:
+                    results.append({"symbol": sym, "status": "SKIPPED", "reason": "BUSY"})
+                    continue
+                lock_acquired = True
+            except Exception:
+                # Store may not implement lock (tests/local). Proceed without it.
+                lock_acquired = False
+
+            try:
+                # sector filter
+                if cfg.sector_filter_on:
+                    sector = self.sym_sector.get(sym, "")
+                    ranked = self.get_sector_rank()
+                    top_secs = [sec for sec, _ in ranked[: max(1, int(cfg.top_n_sector or 1))]]
+                    if sector and sector not in top_secs:
+                        results.append({"symbol": sym, "status": "SKIPPED", "reason": "SECTOR_FILTER"})
+                        continue
+
+                # trade limit
+                allowed = await self.store.allow_trade(self.user_id, alert_key, int(cfg.trade_limit_per_day))
+                if not allowed:
+                    results.append({"symbol": sym, "status": "SKIPPED", "reason": "TRADE_LIMIT"})
                     continue
 
-            # trade limit
-            allowed = await self.store.allow_trade(self.user_id, alert_key, int(cfg.trade_limit_per_day))
-            if not allowed:
-                results.append({"symbol": sym, "status": "SKIPPED", "reason": "TRADE_LIMIT"})
-                continue
+                # already open
+                pos_existing = self.positions.get(sym)
+                if pos_existing and pos_existing.status in ("OPEN", "EXIT_CONDITIONS_MET", "EXITING"):
+                    results.append({"symbol": sym, "status": "SKIPPED", "reason": "ALREADY_OPEN"})
+                    continue
+                if await self.store.get_open(self.user_id, sym):
+                    results.append({"symbol": sym, "status": "SKIPPED", "reason": "ALREADY_OPEN"})
+                    continue
 
-            # already open
-            pos_existing = self.positions.get(sym)
-            if pos_existing and pos_existing.status in ("OPEN", "EXIT_CONDITIONS_MET", "EXITING"):
-                results.append({"symbol": sym, "status": "SKIPPED", "reason": "ALREADY_OPEN"})
-                continue
-            if await self.store.get_open(self.user_id, sym):
-                results.append({"symbol": sym, "status": "SKIPPED", "reason": "ALREADY_OPEN"})
-                continue
-
-            ltp = await self._fetch_ltp(sym)
-            if ltp <= 0:
-                results.append({"symbol": sym, "status": "ERROR", "reason": "NO_LTP"})
-                continue
-
-            qty = 0
-            if cfg.qty_mode == "QTY":
-                qty = int(cfg.qty)
-            else:
+                ltp = await self._fetch_ltp(sym)
                 if ltp <= 0:
                     results.append({"symbol": sym, "status": "ERROR", "reason": "NO_LTP"})
                     continue
-                qty = int(float(cfg.capital) / float(ltp))
-            if qty <= 0:
-                results.append({"symbol": sym, "status": "ERROR", "reason": "ZERO_QTY"})
-                continue
 
-            side: Side = "BUY" if cfg.direction == "LONG" else "SELL"
-
-            # place order
-            try:
-                oid = await self._place_order(sym, side, qty, cfg.product)
-            except Exception as e:
-                results.append({"symbol": sym, "status": "ERROR", "reason": f"ORDER_FAIL:{e}"})
-                continue
-
-            entry = float(ltp or 0.0)
-            target_price = 0.0
-            sl_price = 0.0
-            if entry > 0 and cfg.target_pct > 0:
-                if side == "BUY":
-                    target_price = entry * (1.0 + float(cfg.target_pct) / 100.0)
+                qty = 0
+                if cfg.qty_mode == "QTY":
+                    qty = int(cfg.qty)
                 else:
-                    target_price = entry * (1.0 - float(cfg.target_pct) / 100.0)
-            if entry > 0 and cfg.stop_loss_pct > 0:
-                if side == "BUY":
-                    sl_price = entry * (1.0 - float(cfg.stop_loss_pct) / 100.0)
-                else:
-                    sl_price = entry * (1.0 + float(cfg.stop_loss_pct) / 100.0)
+                    if ltp <= 0:
+                        results.append({"symbol": sym, "status": "ERROR", "reason": "NO_LTP"})
+                        continue
+                    qty = int(float(cfg.capital) / float(ltp))
+                if qty <= 0:
+                    results.append({"symbol": sym, "status": "ERROR", "reason": "ZERO_QTY"})
+                    continue
 
-            pos = Position(
-                trade_id=uuid.uuid4().hex[:12],
-                user_id=self.user_id,
-                symbol=sym,
-                alert_name=alert_key,
-                side=side,
-                product=cfg.product,
-                qty=qty,
-                entry_price=entry,
-                entry_order_id=str(oid),
-                target_price=target_price,
-                sl_price=sl_price,
-                tsl_pct=float(cfg.trailing_sl_pct),
-                highest=entry if side == "BUY" else 0.0,
-                lowest=entry if side == "SELL" else 0.0,
-                status="OPEN",
-                alert_time=str(ts or ""),
-                created_ts=time.time(),
-                updated_ts=time.time(),
-                cfg_target_pct=float(cfg.target_pct),
-                cfg_sl_pct=float(cfg.stop_loss_pct),
-                cfg_tsl_pct=float(cfg.trailing_sl_pct),
-                ltp=entry,
-                pnl=0.0,
-                sector=self.sym_sector.get(sym, ""),
-            )
+                side: Side = "BUY" if cfg.direction == "LONG" else "SELL"
 
-            self.positions[sym] = pos
-            try:
-                await self.store.upsert_position(self.user_id, sym, pos.to_public())
-                await self.store.mark_open(self.user_id, sym, pos.trade_id)
-            except Exception:
-                pass
+                # place order
+                try:
+                    oid = await self._place_order(sym, side, qty, cfg.product)
+                except Exception as e:
+                    results.append({"symbol": sym, "status": "ERROR", "reason": f"ORDER_FAIL:{e}"})
+                    continue
 
-            tick = self.ticks.get(sym) or {}
-            close = float(tick.get("close") or 0.0)
-            pct = ((entry - close) / close * 100.0) if close > 0 else 0.0
-            tsl_line = 0.0
-            if entry > 0 and cfg.trailing_sl_pct > 0:
-                if side == "BUY":
-                    tsl_line = entry * (1.0 - float(cfg.trailing_sl_pct) / 100.0)
-                else:
-                    tsl_line = entry * (1.0 + float(cfg.trailing_sl_pct) / 100.0)
+                entry = float(ltp or 0.0)
+                target_price = 0.0
+                sl_price = 0.0
+                if entry > 0 and cfg.target_pct > 0:
+                    if side == "BUY":
+                        target_price = entry * (1.0 + float(cfg.target_pct) / 100.0)
+                    else:
+                        target_price = entry * (1.0 - float(cfg.target_pct) / 100.0)
+                if entry > 0 and cfg.stop_loss_pct > 0:
+                    if side == "BUY":
+                        sl_price = entry * (1.0 - float(cfg.stop_loss_pct) / 100.0)
+                    else:
+                        sl_price = entry * (1.0 + float(cfg.stop_loss_pct) / 100.0)
 
-            results.append(
-                {
-                    "symbol": sym,
-                    "status": "ENTERED",
-                    "reason": "ORDER_OK",
-                    "side": side,
-                    "qty": qty,
-                    "ltp": entry,
-                    "pct": pct,
-                    "entry": entry,
-                    "target": target_price,
-                    "stoploss": sl_price,
-                    "tsl": tsl_line,
-                }
-            )
+                pos = Position(
+                    trade_id=uuid.uuid4().hex[:12],
+                    user_id=self.user_id,
+                    symbol=sym,
+                    alert_name=alert_key,
+                    side=side,
+                    product=cfg.product,
+                    qty=qty,
+                    entry_price=entry,
+                    entry_order_id=str(oid),
+                    target_price=target_price,
+                    sl_price=sl_price,
+                    tsl_pct=float(cfg.trailing_sl_pct),
+                    tsl_stepwise=bool(cfg.tsl_stepwise),
+                    highest=entry if side == "BUY" else 0.0,
+                    lowest=entry if side == "SELL" else 0.0,
+                    status="OPEN",
+                    alert_time=str(ts or ""),
+                    created_ts=time.time(),
+                    updated_ts=time.time(),
+                    cfg_target_pct=float(cfg.target_pct),
+                    cfg_sl_pct=float(cfg.stop_loss_pct),
+                    cfg_tsl_pct=float(cfg.trailing_sl_pct),
+                    cfg_tsl_stepwise=bool(cfg.tsl_stepwise),
+                    ltp=entry,
+                    pnl=0.0,
+                    sector=self.sym_sector.get(sym, ""),
+                )
+
+                self.positions[sym] = pos
+                try:
+                    await self.store.upsert_position(self.user_id, sym, pos.to_public())
+                    await self.store.mark_open(self.user_id, sym, pos.trade_id)
+                except Exception:
+                    pass
+
+                tick = self.ticks.get(sym) or {}
+                close = float(tick.get("close") or 0.0)
+                pct = ((entry - close) / close * 100.0) if close > 0 else 0.0
+                tsl_line = 0.0
+                if entry > 0 and cfg.trailing_sl_pct > 0:
+                    if side == "BUY":
+                        tsl_line = entry * (1.0 - float(cfg.trailing_sl_pct) / 100.0)
+                    else:
+                        tsl_line = entry * (1.0 + float(cfg.trailing_sl_pct) / 100.0)
+
+                results.append(
+                    {
+                        "symbol": sym,
+                        "status": "ENTERED",
+                        "reason": "ORDER_OK",
+                        "side": side,
+                        "qty": qty,
+                        "ltp": entry,
+                        "pct": pct,
+                        "entry": entry,
+                        "target": target_price,
+                        "stoploss": sl_price,
+                        "tsl": tsl_line,
+                    }
+                )
+            finally:
+                if lock_acquired:
+                    try:
+                        await self.store.release_lock(self.user_id, sym, "entry")
+                    except Exception:
+                        pass
 
         return results
 
@@ -830,9 +964,15 @@ class TradeEngine:
         tsl_line = 0.0
         if pos.tsl_pct > 0:
             if pos.side == "BUY" and pos.highest > 0:
-                tsl_line = pos.highest * (1.0 - pos.tsl_pct / 100.0)
+                anchor = float(pos.highest)
+                if pos.tsl_stepwise and float(pos.entry_price) > 0:
+                    anchor = _stepwise_anchor_long(float(pos.entry_price), float(pos.highest), float(pos.tsl_pct))
+                tsl_line = anchor * (1.0 - pos.tsl_pct / 100.0)
             elif pos.side == "SELL" and pos.lowest > 0:
-                tsl_line = pos.lowest * (1.0 + pos.tsl_pct / 100.0)
+                anchor = float(pos.lowest)
+                if pos.tsl_stepwise and float(pos.entry_price) > 0:
+                    anchor = _stepwise_anchor_short(float(pos.entry_price), float(pos.lowest), float(pos.tsl_pct))
+                tsl_line = anchor * (1.0 + pos.tsl_pct / 100.0)
 
         # distances (signed)
         tgt_dist = 0.0
@@ -1001,9 +1141,15 @@ class TradeEngine:
         tsl_line = 0.0
         if pos.product == "MIS" and pos.tsl_pct > 0:
             if pos.side == "BUY" and pos.highest > 0:
-                tsl_line = float(pos.highest) * (1.0 - float(pos.tsl_pct) / 100.0)
+                anchor = float(pos.highest)
+                if pos.tsl_stepwise and entry > 0:
+                    anchor = _stepwise_anchor_long(entry, float(pos.highest), float(pos.tsl_pct))
+                tsl_line = anchor * (1.0 - float(pos.tsl_pct) / 100.0)
             elif pos.side == "SELL" and pos.lowest > 0:
-                tsl_line = float(pos.lowest) * (1.0 + float(pos.tsl_pct) / 100.0)
+                anchor = float(pos.lowest)
+                if pos.tsl_stepwise and entry > 0:
+                    anchor = _stepwise_anchor_short(entry, float(pos.lowest), float(pos.tsl_pct))
+                tsl_line = anchor * (1.0 + float(pos.tsl_pct) / 100.0)
 
         # distance sign: + means ltp above level, - means below (generic)
         dt = _pct_dist(ltp, tgt) if tgt > 0 else 0.0

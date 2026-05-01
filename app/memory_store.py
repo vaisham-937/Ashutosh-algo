@@ -24,6 +24,7 @@ class InMemoryStore:
         self._alert_configs: Dict[int, Dict[str, Dict[str, Any]]] = {}
         self._alerts: Dict[int, List[Dict[str, Any]]] = {}
         self._positions: Dict[int, Dict[str, Dict[str, Any]]] = {}
+        self._pnl_exit_cfg: Dict[int, Dict[str, Any]] = {}
 
         self._auto_sq_off_enabled: Dict[int, bool] = {}
         self._auto_sq_off_ran_ymd: Dict[int, str] = {}
@@ -70,6 +71,24 @@ class InMemoryStore:
 
     async def is_kill(self, user_id: int) -> bool:
         return bool(self._kill.get(int(user_id), False))
+
+    # -------------------------
+    # P&L exit config (MTM-based)
+    # -------------------------
+    async def get_pnl_exit_config(self, user_id: int) -> Dict[str, Any]:
+        return dict(self._pnl_exit_cfg.get(int(user_id), {"enabled": False, "max_profit": 0.0, "max_loss": 0.0}))
+
+    async def set_pnl_exit_config(self, user_id: int, cfg: Dict[str, Any]) -> Dict[str, Any]:
+        enabled = bool(cfg.get("enabled", False))
+        max_profit = float(cfg.get("max_profit", 0.0) or 0.0)
+        max_loss = float(cfg.get("max_loss", 0.0) or 0.0)
+        if max_profit < 0:
+            max_profit = abs(max_profit)
+        if max_loss < 0:
+            max_loss = abs(max_loss)
+        payload = {"enabled": enabled, "max_profit": max_profit, "max_loss": max_loss}
+        self._pnl_exit_cfg[int(user_id)] = dict(payload)
+        return payload
 
     # -------------------------
     # Alert config
